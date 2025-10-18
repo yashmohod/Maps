@@ -14,6 +14,7 @@ export default function MapEditor() {
 
   // Nodes
   const [markers, setMarkers] = useState([
+    // ['n-1760678246567', [-76.495333, 42.421607]]
   ]);
 
   // Undirected edges by node ids
@@ -83,10 +84,10 @@ export default function MapEditor() {
   // Map-level click: clear selection; Shift+Click to add a node
   function handleMapClick(e) {
     // if (e.originalEvent?.shiftKey) {
-      const { lng, lat } = e.lngLat;
-      const id = `n-${Date.now()}`;
-      setMarkers((prev) => [...prev, { id, lng, lat }]);
-      return;
+    const { lng, lat } = e.lngLat;
+    const id = `n-${Date.now()}`;
+    setMarkers((prev) => [...prev, { id, lng, lat }]);
+    return;
     // }
     if (modeRef.current === "select" && selectedRef.current !== null) {
       setSelectedId(null);
@@ -284,9 +285,8 @@ export default function MapEditor() {
                 onClick={(e) => handleMarkerClick(e, m.id)}
                 onContextMenu={(e) => e.preventDefault()}
                 aria-label={`marker-${m.id}`}
-                className={`rounded-full border-2 shadow ${
-                  isSelected ? "bg-red-600 border-white" : "bg-blue-600 border-white"
-                }`}
+                className={`rounded-full border-2 shadow ${isSelected ? "bg-red-600 border-white" : "bg-blue-600 border-white"
+                  }`}
                 style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box" }}
                 title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
               />

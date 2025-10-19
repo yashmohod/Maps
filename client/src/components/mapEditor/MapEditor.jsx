@@ -1,15 +1,18 @@
 // src/components/MapEditor.jsx
 "use client";
-
+import toast, { Toaster } from "react-hot-toast";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Map as ReactMap, Marker, Source, Layer } from "@vis.gl/react-maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { getAllMapFeature, addNode, addEdge, editNode, deleteFeature } from "../../../api";
+import Dropdown from 'react-bootstrap/Dropdown';
+import DropdownButton from 'react-bootstrap/DropdownButton';
 
 export default function MapEditor() {
   const [viewState, setViewState] = useState({
     longitude: -76.494131,
     latitude: 42.422108,
-    zoom: 15,
+    zoom: 15.5,
   });
 
   // Nodes
@@ -64,31 +67,66 @@ export default function MapEditor() {
   const edgeKey = (a, b) => [a, b].sort().join("__");
   const findMarker = (id) => markers.find((m) => m.id === id) || null;
 
-  function addEdgeIfMissing(a, b) {
+  async function addEdgeIfMissing(a, b) {
     if (a === b) return;
     if (!findMarker(a) || !findMarker(b)) return;
     const key = edgeKey(a, b);
-    setEdgeIndex((list) => (list.some((e) => e.key === key) ? list : [...list, { key, from: a, to: b }]));
+    const coord = new Map(markers.map((m) => [m.id, [m.lng, m.lat]]));
+    const ac = coord.get(a);
+    const bc = coord.get(b);
+    let foundE = edgeIndex.some((e) => e.key === key)
+    if (foundE) {
+      return;
+    } else {
+      let response = await addEdge(key, b, a, [ac, bc])
+      if (response) {
+        setEdgeIndex((list) => ([...list, { key, from: a, to: b }]));
+      } else {
+        toast.error("Edge could not be added.")
+      }
+    }
   }
 
-  function deleteNode(id) {
-    setMarkers((prev) => prev.filter((m) => m.id !== id));
-    setEdgeIndex((list) => list.filter((e) => e.from !== id && e.to !== id));
+  async function deleteNode(id) {
+    let response = await deleteFeature(id, "Point")
+
+    if (response) {
+      setMarkers((prev) => prev.filter((m) => m.id !== id));
+      setEdgeIndex((list) => list.filter((e) => e.from !== id && e.to !== id));
+    } else {
+      toast.error("Feature could not be deleted.")
+    }
+
     if (selectedRef.current === id) setSelectedId(null);
   }
 
-  function deleteEdgeByKey(key) {
-    setEdgeIndex((list) => list.filter((e) => e.key !== key));
+  async function deleteEdgeByKey(key) {
+
+    let response = await deleteFeature(key, "Edge")
+
+    if (response) {
+      setEdgeIndex((list) => list.filter((e) => e.key !== key));
+    } else {
+      toast.error("Feature could not be deleted.")
+    }
+
   }
 
-  // Map-level click: clear selection; Shift+Click to add a node
-  function handleMapClick(e) {
-    // if (e.originalEvent?.shiftKey) {
-    const { lng, lat } = e.lngLat;
-    const id = `n-${Date.now()}`;
-    setMarkers((prev) => [...prev, { id, lng, lat }]);
-    return;
-    // }
+  // Map-level click: clear selection
+  async function handleMapClick(e) {
+
+    if (e.originalEvent?.ctrlKey) {
+      const { lng, lat } = e.lngLat;
+      const id = `n-${Date.now()}`;
+      let response = await addNode(id, lng, lat)
+      if (response) {
+        setMarkers((prev) => [...prev, { id, lng, lat }]);
+        return;
+      } else {
+        toast.error("Node could not be added.")
+        return;
+      }
+    }
     if (modeRef.current === "select" && selectedRef.current !== null) {
       setSelectedId(null);
     }
@@ -100,6 +138,13 @@ export default function MapEditor() {
 
     if (modeRef.current === "delete") {
       deleteNode(id);
+      return;
+    }
+
+    if (modeRef.current === "edit") {
+      toast.success("clicked in edit")
+
+      // building node
       return;
     }
 
@@ -124,7 +169,15 @@ export default function MapEditor() {
   // Drag end in edit mode
   function handleMarkerDragEnd(e, id) {
     const { lng, lat } = e.lngLat;
-    setMarkers((prev) => prev.map((m) => (m.id === id ? { ...m, lng, lat } : m)));
+    // setMarkers((prev) => prev.map((m) => (m.id === id ? { ...m, lng, lat } : m)));
+    let response = editNode(id, lng, lat)
+    if (response) {
+      setMarkers((prev) => prev.map((m) => (m.id === id ? { ...m, lng, lat } : m)));
+      return;
+    } else {
+      toast.error("Node could not be edited.")
+      return;
+    }
     // edges recompute via useMemo
   }
 
@@ -144,7 +197,54 @@ export default function MapEditor() {
     map.on("click", "graph-edges", handleEdgeLayerClick);
   }
 
+
+  async function getAllFeature() {
+    let response = await getAllMapFeature()
+    const fc = response;
+    if (markers.length > 0) {
+      return
+    }
+    if (fc?.type !== "FeatureCollection" || !Array.isArray(fc.features)) {
+      alert("Invalid GeoJSON FeatureCollection.");
+      return;
+    }
+    const nextMarkers = [];
+    const nextEdges = [];
+    for (const f of fc.features) {
+      if (f?.geometry?.type === "Point") {
+        const id = f.id ?? f.properties?.id;
+        const [lng, lat] = f.geometry.coordinates || [];
+        if (id && Number.isFinite(lng) && Number.isFinite(lat)) {
+          nextMarkers.push({ id, lng, lat });
+        }
+      } else if (f?.geometry?.type === "LineString") {
+        const from = f.properties?.from;
+        const to = f.properties?.to;
+        if (from && to) nextEdges.push({ key: edgeKey(from, to), from, to });
+      }
+    }
+    const ids = new Set(nextMarkers.map((m) => m.id));
+    if (ids.size !== nextMarkers.length) {
+      alert("Duplicate node ids in import.");
+      return;
+    }
+    setMarkers(nextMarkers);
+    const uniq = [];
+    const seen = new Set();
+    for (const e of nextEdges) {
+      if (seen.has(e.key)) continue;
+      seen.add(e.key);
+      uniq.push(e);
+    }
+    setEdgeIndex(uniq);
+    setSelectedId(null);
+    ev.target.value = "";
+  }
+
+
   useEffect(() => {
+
+    getAllFeature()
     return () => {
       const map = mapRef.current?.getMap?.();
       if (map) map.off("click", "graph-edges", handleEdgeLayerClick);
@@ -221,6 +321,10 @@ export default function MapEditor() {
 
   return (
     <div className="w-full h-screen relative">
+      <Toaster
+        position="top-right"
+        reverseOrder={true}
+      />
       {/* Toolbar */}
       <div className="absolute z-10 top-3 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
         <span className="text-sm font-medium">Mode:</span>
@@ -253,6 +357,29 @@ export default function MapEditor() {
         {/* <span className="ml-2 text-xs text-gray-600">
           Tip: Shift+Click map to add node • Selected: {selectedId ?? "none"}
         </span> */}
+      </div>
+      <div className="absolute z-10 top-16 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex flex-col items-center gap-2">
+        <div className="flex flex-row w-full items-center">
+          <span className="text-sm font-medium w-50">Building Nodes:</span>
+          <DropdownButton id="dropdown-basic-button" title="Dropdown button" className="pl-2">
+            <Dropdown.Item href="#/action-1">Action</Dropdown.Item>
+            <Dropdown.Item href="#/action-2">Another action</Dropdown.Item>
+            <Dropdown.Item href="#/action-3">Something else</Dropdown.Item>
+          </DropdownButton>
+          <div className="pl-2">
+            <button
+              className={`px-3 py-2  rounded ${mode === "select" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+              onClick={() => setMode("select")}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="">
+
+        </div>
+
       </div>
 
       <ReactMap

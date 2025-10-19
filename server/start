@@ -1,0 +1,1 @@
+flask --app maps run --port 8000    

@@ -13,10 +13,14 @@
     "@mapbox/mapbox-gl-draw": "^1.5.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vis.gl/react-maplibre": "^8.1.0",
+    "axios": "^1.12.2",
+    "bootstrap": "^5.3.8",
     "mapbox": "^1.0.0-beta10",
     "maplibre-gl": "^5.9.0",
     "react": "^19.1.1",
+    "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.1",
+    "react-hot-toast": "^2.6.0",
     "tailwindcss": "^4.1.14"
   },
   "devDependencies": {

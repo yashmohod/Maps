@@ -16,14 +16,16 @@ export default function MapEditor() {
   });
 
   // Nodes
-  const [markers, setMarkers] = useState([
-    // ['n-1760678246567', [-76.495333, 42.421607]]
-  ]);
+  const [markers, setMarkers] = useState([]);
+  const [curBuildingMarkers, setCurBuildingMarkers] = useState({});
+  const [curADAFeature, setCurADAFeature] = useState({});
 
   // Undirected edges by node ids
   const [edgeIndex, setEdgeIndex] = useState([]); // [{key, from, to}]
   const [selectedId, setSelectedId] = useState(null);
   const [mode, setMode] = useState("select"); // 'select' | 'edit' | 'delete'
+  const [showNodes, setShowNodes] = useState(true);
+  // const [buildingAdd, setBuildingAdd] = useState(false);
 
   const mapRef = useRef(null);
   const modeRef = useRef(mode);            // why: avoid stale closures in map listeners
@@ -31,7 +33,38 @@ export default function MapEditor() {
   modeRef.current = mode;
   selectedRef.current = selectedId;
 
-  // Build edges GeoJSON from nodes + edgeIndex
+  // // Build edges GeoJSON from nodes + edgeIndex
+  // const edgesGeoJSON = useMemo(() => {
+  //   const coord = new Map(markers.map((m) => [m.id, [m.lng, m.lat]]));
+  //   return {
+  //     type: "FeatureCollection",
+  //     features: edgeIndex
+  //       .map(({ key, from, to }) => {
+  //         const a = coord.get(from);
+  //         const b = coord.get(to);
+  //         if (!a || !b) return null;
+  //         return {
+  //           type: "Feature",
+  //           properties: { key, from, to },
+  //           geometry: { type: "LineString", coordinates: [a, b] },
+  //         };
+  //       })
+  //       .filter(Boolean),
+  //   };
+  // }, [markers, edgeIndex]);
+
+  // // Edge line styling
+  // const lineLayer = useMemo(
+  //   () => ({
+  //     id: "graph-edges",
+  //     type: "line",
+  //     source: "edges",
+  //     layout: { "line-cap": "round", "line-join": "round" },
+  //     paint: { "line-width": 5, "line-color": "#111827", "line-opacity": 0.9 },
+  //   }),
+  //   []
+  // );
+
   const edgesGeoJSON = useMemo(() => {
     const coord = new Map(markers.map((m) => [m.id, [m.lng, m.lat]]));
     return {
@@ -43,25 +76,45 @@ export default function MapEditor() {
           if (!a || !b) return null;
           return {
             type: "Feature",
-            properties: { key, from, to },
+            properties: {
+              key,
+              from,
+              to,
+              ada: !!curADAFeature[key], // << mark ADA-selected edges
+            },
             geometry: { type: "LineString", coordinates: [a, b] },
           };
         })
         .filter(Boolean),
     };
-  }, [markers, edgeIndex]);
+  }, [markers, edgeIndex, curADAFeature]); // << include ADA map so style updates
 
-  // Edge line styling
+  // --- Line layer: color/width change when ADA-selected ---
   const lineLayer = useMemo(
     () => ({
       id: "graph-edges",
       type: "line",
       source: "edges",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-width": 3, "line-color": "#111827", "line-opacity": 0.9 },
+      paint: {
+        "line-width": [
+          "case",
+          ["boolean", ["get", "ada"], false],
+          6, // wider when ADA
+          5,
+        ],
+        "line-color": [
+          "case",
+          ["boolean", ["get", "ada"], false],
+          "#e11717ff", // ADA = green
+          "#111827", // default = dark gray
+        ],
+        "line-opacity": 0.95,
+      },
     }),
     []
   );
+
 
   // Helpers
   const edgeKey = (a, b) => [a, b].sort().join("__");
@@ -114,7 +167,7 @@ export default function MapEditor() {
 
   // Map-level click: clear selection
   async function handleMapClick(e) {
-
+    // console.log(e)
     if (e.originalEvent?.ctrlKey) {
       const { lng, lat } = e.lngLat;
       const id = `n-${Date.now()}`;
@@ -135,15 +188,47 @@ export default function MapEditor() {
   // Node click per mode
   function handleMarkerClick(e, id) {
     e.stopPropagation(); // why: prevent map click behavior
-
     if (modeRef.current === "delete") {
       deleteNode(id);
       return;
     }
 
-    if (modeRef.current === "edit") {
-      toast.success("clicked in edit")
+    if (modeRef.current === "buildingGroup") {
 
+      // immutable toggle
+      setCurBuildingMarkers((prev) => {
+        // selected?
+        if (Object.prototype.hasOwnProperty.call(prev, id)) {
+          // remove key immutably
+          const { [id]: _removed, ...rest } = prev; // <-- new object
+          return rest;
+        }
+        // add key immutably
+        const cur = markers.find((m) => m.id === id);
+        if (!cur) return prev;
+        return { ...prev, [id]: cur };
+      });
+      
+      // building node
+      return;
+    }
+
+    if (modeRef.current === "ada") {
+
+      // immutable toggle
+      setCurADAFeature((prev) => {
+        // selected?
+        if (Object.prototype.hasOwnProperty.call(prev, id)) {
+          // remove key immutably
+          const { [id]: _removed, ...rest } = prev; // <-- new object
+          return rest;
+        }
+        // add key immutably
+        const cur = markers.find((m) => m.id === id);
+        if (!cur) return prev;
+        return { ...prev, [id]: cur };
+      });
+      
       // building node
       return;
     }
@@ -163,7 +248,6 @@ export default function MapEditor() {
       return;
     }
 
-    // edit mode: click does nothing
   }
 
   // Drag end in edit mode
@@ -183,18 +267,74 @@ export default function MapEditor() {
 
   // Edge layer click handler (used for Delete mode)
   function handleEdgeLayerClick(e) {
-    if (modeRef.current !== "delete") return;
     const f = e.features?.[0];
     const key = f?.properties?.key;
-    if (key) deleteEdgeByKey(key);
-  }
+    if (modeRef.current === "buildingGroup") {
 
+      // immutable toggle
+      setCurBuildingMarkers((prev) => {
+        // selected?
+        if (Object.prototype.hasOwnProperty.call(prev, key)) {
+          // remove key immutably
+          const { [key]: _removed, ...rest } = prev; // <-- new object
+          return rest;
+        }
+        // add key immutably
+        const cur = edgeIndex.find((m) => m.key === key);
+        if (!cur) return prev;
+        return { ...prev, [key]: cur };
+      });
+      
+      // building node
+      return;
+    }
+
+    if (modeRef.current === "ada") {
+
+      // immutable toggle
+      setCurADAFeature((prev) => {
+        // selected?
+        if (Object.prototype.hasOwnProperty.call(prev, key)) {
+          // remove key immutably
+          const { [key]: _removed, ...rest } = prev; // <-- new object
+          return rest;
+        }
+        // add key immutably
+        const cur = edgeIndex.find((m) => m.key === key);
+        if (!cur) return prev;
+        return { ...prev, [key]: cur };
+      });
+      
+      // building node
+      return;
+    }
+    if (modeRef.current === "delete"){
+      if (key){
+        let response = deleteFeature(key,"Edge")
+        deleteEdgeByKey(key)
+      }
+    }
+  }
+  // NEW: change cursor when hovering edges
+  function handleEdgeEnter() {
+    const map = mapRef.current?.getMap?.();
+    if (map) map.getCanvas().style.cursor = "pointer"; // UX cue
+  }
+  function handleEdgeLeave() {
+    const map = mapRef.current?.getMap?.();
+    if (map) map.getCanvas().style.cursor = "";
+  }
   // Wire/unwire edge layer listeners
   function handleLoad() {
     const map = mapRef.current?.getMap?.();
     if (!map) return;
     map.off("click", "graph-edges", handleEdgeLayerClick);
+    map.off("mouseenter", "graph-edges", handleEdgeEnter);
+    map.off("mouseleave", "graph-edges", handleEdgeLeave);
+
     map.on("click", "graph-edges", handleEdgeLayerClick);
+    map.on("mouseenter", "graph-edges", handleEdgeEnter);
+    map.on("mouseleave", "graph-edges", handleEdgeLeave);
   }
 
 
@@ -319,6 +459,14 @@ export default function MapEditor() {
     reader.readAsText(file);
   }
 
+   // Toggle handler: also clear selection so no hidden active node remains
+  function toggleNodes() {
+    setShowNodes((v) => {
+      if (v && selectedRef.current) setSelectedId(null); // visible→hidden
+      return !v;
+    });
+  }
+
   return (
     <div className="w-full h-screen relative">
       <Toaster
@@ -331,8 +479,23 @@ export default function MapEditor() {
         <button
           className={`px-2 py-1 rounded ${mode === "select" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
           onClick={() => setMode("select")}
+          title="Place nodes and connect them to form routes."
         >
-          Select
+          Draw
+        </button>
+        <button
+          className={`px-2 py-1 rounded ${mode === "ada" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          onClick={() => setMode("ada")}
+          title="Select the edges and nodes that are accessiable."
+        >
+          ADA Select
+        </button>
+        <button
+          className={`px-2 py-1 rounded ${mode === "buildingGroup" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          onClick={() => setMode("buildingGroup")}
+          title="Select the node at the entrance of a building."
+        >
+          Building Select
         </button>
         <button
           className={`px-2 py-1 rounded ${mode === "edit" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
@@ -355,7 +518,12 @@ export default function MapEditor() {
           <input type="file" accept=".json,.geojson,application/geo+json" onChange={importGeoJSON} hidden />
         </label>
         {/* <span className="ml-2 text-xs text-gray-600">
-          Tip: Shift+Click map to add node • Selected: {selectedId ?? "none"}
+          {mode=="select" ?"Tip: Ctrl+Click map to add node":null} 
+          {mode=="ada" ?"Tip: Select the edges and nodes that are accessiable":null} 
+          {mode=="buildingGroup" ?"Tip: Select the node at the entrance of a building.":null} 
+           {mode=="edit" ?"Tip: Ctrl+Click map to add node":null} 
+          {mode=="delete" ?"Tip: Ctrl+Click map to add node":null}  
+          • Selected: {selectedId ?? "none"}
         </span> */}
       </div>
       <div className="absolute z-10 top-16 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex flex-col items-center gap-2">
@@ -369,7 +537,7 @@ export default function MapEditor() {
           <div className="pl-2">
             <button
               className={`px-3 py-2  rounded ${mode === "select" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
-              onClick={() => setMode("select")}
+              onClick={() =>{}}
             >
               Add
             </button>
@@ -398,7 +566,18 @@ export default function MapEditor() {
 
         {/* Nodes */}
         {markers.map((m) => {
-          const isSelected = m.id === selectedId && mode === "select";
+          let isSelected = m.id === selectedId && mode === "select";
+          if(mode === "select"){
+            isSelected = m.id === selectedId
+          }else if(mode === "ada"){
+            isSelected = m.id in curADAFeature
+          }
+          else if(mode === "buildingGroup"){
+            // console.log(m.id in curBuildingMarkers)
+            isSelected = m.id in curBuildingMarkers
+          }
+
+
           return (
             <Marker
               key={m.id}
@@ -408,15 +587,17 @@ export default function MapEditor() {
               draggable={mode === "edit"}
               onDragEnd={(e) => handleMarkerDragEnd(e, m.id)}
             >
+
               <button
-                onClick={(e) => handleMarkerClick(e, m.id)}
-                onContextMenu={(e) => e.preventDefault()}
-                aria-label={`marker-${m.id}`}
-                className={`rounded-full border-2 shadow ${isSelected ? "bg-red-600 border-white" : "bg-blue-600 border-white"
+                  onClick={(e) => handleMarkerClick(e, m.id)}
+                  onContextMenu={(e) => e.preventDefault()}
+                  aria-label={`marker-${m.id}`}
+                  className={`rounded-full border-2 shadow ${
+                    isSelected ? "bg-red-600 border-white" : "bg-blue-600 border-white"
                   }`}
-                style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box" }}
-                title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
-              />
+                  style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box",opacity: showNodes ? 1 : 0, pointerEvents: showNodes ? 'auto' : 'none'}}
+                  title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
+                />
             </Marker>
           );
         })}

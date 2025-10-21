@@ -66,7 +66,7 @@ export const editNode = async (id, lng, lat) => {
 export const setADAStatus = async (key, value, featureType) => {
 
     const res = await API.patch("/map/adastatus", { key, value, featureType });
-    if (res.status == 201) {
+    if (res.status == 200) {
         return true;
     } else {
         return false;

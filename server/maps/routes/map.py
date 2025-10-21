@@ -77,7 +77,27 @@ def MapFeatureEdit():
     
     return jsonify({"message": "Nodes and edges updated successfully."}), 201
 
+@map_bp.route("/adastatus", methods=["PATCH"])
+def SetADAStatus():
+    if request.data == None:
+        return jsonify({"message": "Bad Request"}), 400
+    
+    data = json.loads(request.data)
+    
+    if data["featureType"] == None or data["value"] == None or data["key"] == None: 
+        return jsonify({"message": "Bad Request"}), 400
 
+    if data["featureType"] == "Node":
+        curNode = Nodes.query.filter_by(key = data["key"]).first()
+        curNode.ada = data["value"] 
+   
+    if data["featureType"] == "Edge":
+        curEdge = Edges.query.filter_by(key = data["key"]).first()
+        curEdge.ada = data["value"] 
+
+    db.session.commit()
+     
+    return jsonify({"message": "Feature updated successfully."}), 200
 
 
 
@@ -138,9 +158,14 @@ def MapFeatureDelete():
 
         node = Nodes.query.filter_by(key = featureKey ).first()
 
+        buildings = Buildings.query.all() 
+        for building in buildings:
+            if node in building.nodes:
+                building.nodes.remove(node)
+
         edgeFrom = Edges.query.filter_by(eFrom = node.id ).all()
         edgeTo = Edges.query.filter_by(eTo = node.id ).all()
-
+        
         for edge in edgeFrom:
             db.session.delete(edge)
 

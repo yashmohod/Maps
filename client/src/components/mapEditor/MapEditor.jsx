@@ -4,7 +4,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Map as ReactMap, Marker, Source, Layer } from "@vis.gl/react-maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { getAllMapFeature, addNode, addEdge, editNode, deleteFeature } from "../../../api";
+import { getAllMapFeature, addNode, addEdge, editNode, deleteFeature, setADAStatus } from "../../../api";
 import Dropdown from 'react-bootstrap/Dropdown';
 import DropdownButton from 'react-bootstrap/DropdownButton';
 
@@ -17,9 +17,9 @@ export default function MapEditor() {
 
   // Nodes
   const [markers, setMarkers] = useState([]);
-  const [curBuildingMarkers, setCurBuildingMarkers] = useState({});
-  const [curADAFeature, setCurADAFeature] = useState({});
-
+  const [curBuildingNodes, setCurBuildingNodes] = useState({});
+  const [curADANodes, setCurADANodes] = useState({});
+  const [curADAEdges, setCurADAEdges] = useState({});
   // Undirected edges by node ids
   const [edgeIndex, setEdgeIndex] = useState([]); // [{key, from, to}]
   const [selectedId, setSelectedId] = useState(null);
@@ -80,14 +80,14 @@ export default function MapEditor() {
               key,
               from,
               to,
-              ada: !!curADAFeature[key], // << mark ADA-selected edges
+              ada: !!curADAEdges[key] && mode == "ada", // << mark ADA-selected edges
             },
             geometry: { type: "LineString", coordinates: [a, b] },
           };
         })
         .filter(Boolean),
     };
-  }, [markers, edgeIndex, curADAFeature]); // << include ADA map so style updates
+  }, [markers, edgeIndex, curADAEdges, mode]); // << include ADA map so style updates
 
   // --- Line layer: color/width change when ADA-selected ---
   const lineLayer = useMemo(
@@ -194,42 +194,12 @@ export default function MapEditor() {
     }
 
     if (modeRef.current === "buildingGroup") {
-
-      // immutable toggle
-      setCurBuildingMarkers((prev) => {
-        // selected?
-        if (Object.prototype.hasOwnProperty.call(prev, id)) {
-          // remove key immutably
-          const { [id]: _removed, ...rest } = prev; // <-- new object
-          return rest;
-        }
-        // add key immutably
-        const cur = markers.find((m) => m.id === id);
-        if (!cur) return prev;
-        return { ...prev, [id]: cur };
-      });
-      
-      // building node
+      addToBuildingGroup(id)
       return;
     }
 
     if (modeRef.current === "ada") {
-
-      // immutable toggle
-      setCurADAFeature((prev) => {
-        // selected?
-        if (Object.prototype.hasOwnProperty.call(prev, id)) {
-          // remove key immutably
-          const { [id]: _removed, ...rest } = prev; // <-- new object
-          return rest;
-        }
-        // add key immutably
-        const cur = markers.find((m) => m.id === id);
-        if (!cur) return prev;
-        return { ...prev, [id]: cur };
-      });
-      
-      // building node
+      setADANode(id)
       return;
     }
 
@@ -270,47 +240,17 @@ export default function MapEditor() {
     const f = e.features?.[0];
     const key = f?.properties?.key;
     if (modeRef.current === "buildingGroup") {
-
-      // immutable toggle
-      setCurBuildingMarkers((prev) => {
-        // selected?
-        if (Object.prototype.hasOwnProperty.call(prev, key)) {
-          // remove key immutably
-          const { [key]: _removed, ...rest } = prev; // <-- new object
-          return rest;
-        }
-        // add key immutably
-        const cur = edgeIndex.find((m) => m.key === key);
-        if (!cur) return prev;
-        return { ...prev, [key]: cur };
-      });
-      
       // building node
       return;
     }
 
     if (modeRef.current === "ada") {
-
-      // immutable toggle
-      setCurADAFeature((prev) => {
-        // selected?
-        if (Object.prototype.hasOwnProperty.call(prev, key)) {
-          // remove key immutably
-          const { [key]: _removed, ...rest } = prev; // <-- new object
-          return rest;
-        }
-        // add key immutably
-        const cur = edgeIndex.find((m) => m.key === key);
-        if (!cur) return prev;
-        return { ...prev, [key]: cur };
-      });
-      
-      // building node
+      setADAEdge(key);
       return;
     }
-    if (modeRef.current === "delete"){
-      if (key){
-        let response = deleteFeature(key,"Edge")
+    if (modeRef.current === "delete") {
+      if (key) {
+        let response = deleteFeature(key, "Edge")
         deleteEdgeByKey(key)
       }
     }
@@ -459,12 +399,108 @@ export default function MapEditor() {
     reader.readAsText(file);
   }
 
-   // Toggle handler: also clear selection so no hidden active node remains
+  // Toggle handler: also clear selection so no hidden active node remains
   function toggleNodes() {
     setShowNodes((v) => {
       if (v && selectedRef.current) setSelectedId(null); // visible→hidden
       return !v;
     });
+  }
+
+  function setADANode(id) {
+
+    // immutable toggle
+    const isSelected = Object.prototype.hasOwnProperty.call(curADANodes, id);
+
+    // If trying to remove, block removal when any ADA edge touches this node
+    if (isSelected) {
+      const attached = Object.values(curADAEdges).some(
+        (e) => e.from === id || e.to === id
+      );
+      if (attached) {
+        toast.error("Can't remove a node attached to an ADA edge");
+        return;
+      }
+    }
+    setCurADANodes((prev) => {
+      if (Object.prototype.hasOwnProperty.call(prev, id)) {
+        let resp = setADAStatus(id, false, "Node")
+        // remove key immutably 
+        if (resp) {
+          const { [id]: _removed, ...rest } = prev; // <-- new object 
+          return rest;
+        } else {
+          return prev;
+        }
+      }
+      const cur = markers.find((m) => m.id === id);
+      if (!cur) return prev;
+
+      let resp = setADAStatus(id, true, "Node")
+      if (resp) {
+
+        return { ...prev, [id]: cur }; // immutable add
+      } else {
+        return prev;
+      }
+    });
+
+  }
+  function setADAEdge(key) {
+    const cur = edgeIndex.find((m) => m.key === key);
+
+    if (Object.prototype.hasOwnProperty.call(curADAEdges, key)) {
+      if (Object.prototype.hasOwnProperty(curADANodes, cur["from"])) setADANode(cur["from"]);
+      if (Object.prototype.hasOwnProperty(curADANodes, cur["to"])) setADANode(cur["to"]);
+    } else {
+      if (!Object.prototype.hasOwnProperty(curADANodes, cur["from"])) setADANode(cur["from"]);
+      if (!Object.prototype.hasOwnProperty(curADANodes, cur["to"])) setADANode(cur["to"]);
+    }
+
+    setCurADAEdges((prev) => {
+      // add key immutably
+      const cur = edgeIndex.find((m) => m.key === key);
+      // selected?
+      if (Object.prototype.hasOwnProperty.call(prev, key)) {
+
+        let resp = setADAStatus(key, false, "Edge")
+        // remove key immutably 
+        if (resp) {
+          const { [key]: _removed, ...rest } = prev; // <-- new object 
+          return rest;
+        } else {
+          return prev;
+        }
+
+      }
+
+      if (!cur) return prev;
+      let resp = setADAStatus(key, true, "Edge")
+      if (resp) {
+        return { ...prev, [key]: cur };
+
+      } else {
+        return prev;
+      }
+    });
+
+
+  }
+
+  function addToBuildingGroup(key) {
+    setCurBuildingNodes((prev) => {
+      // selected?
+      if (Object.prototype.hasOwnProperty.call(prev, key)) {
+        // remove key immutably
+        const { [key]: _removed, ...rest } = prev; // <-- new object
+        return rest;
+      }
+      // add key immutably
+      const cur = markers.find((m) => m.id === key);
+      if (!cur) return prev;
+      return { ...prev, [key]: cur };
+    });
+
   }
 
   return (
@@ -486,7 +522,7 @@ export default function MapEditor() {
         <button
           className={`px-2 py-1 rounded ${mode === "ada" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
           onClick={() => setMode("ada")}
-          title="Select the edges and nodes that are accessiable."
+          title="Select the edges and nodes that are accessible."
         >
           ADA Select
         </button>
@@ -519,7 +555,7 @@ export default function MapEditor() {
         </label>
         {/* <span className="ml-2 text-xs text-gray-600">
           {mode=="select" ?"Tip: Ctrl+Click map to add node":null} 
-          {mode=="ada" ?"Tip: Select the edges and nodes that are accessiable":null} 
+          {mode=="ada" ?"Tip: Select the edges and nodes that are accessible":null} 
           {mode=="buildingGroup" ?"Tip: Select the node at the entrance of a building.":null} 
            {mode=="edit" ?"Tip: Ctrl+Click map to add node":null} 
           {mode=="delete" ?"Tip: Ctrl+Click map to add node":null}  
@@ -537,7 +573,7 @@ export default function MapEditor() {
           <div className="pl-2">
             <button
               className={`px-3 py-2  rounded ${mode === "select" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
-              onClick={() =>{}}
+              onClick={() => { }}
             >
               Add
             </button>
@@ -567,14 +603,14 @@ export default function MapEditor() {
         {/* Nodes */}
         {markers.map((m) => {
           let isSelected = m.id === selectedId && mode === "select";
-          if(mode === "select"){
+          if (mode === "select") {
             isSelected = m.id === selectedId
-          }else if(mode === "ada"){
-            isSelected = m.id in curADAFeature
+          } else if (mode === "ada") {
+            isSelected = m.id in curADANodes
           }
-          else if(mode === "buildingGroup"){
-            // console.log(m.id in curBuildingMarkers)
-            isSelected = m.id in curBuildingMarkers
+          else if (mode === "buildingGroup") {
+            // console.log(m.id in curBuildingNodes)
+            isSelected = m.id in curBuildingNodes
           }
 
 
@@ -589,15 +625,14 @@ export default function MapEditor() {
             >
 
               <button
-                  onClick={(e) => handleMarkerClick(e, m.id)}
-                  onContextMenu={(e) => e.preventDefault()}
-                  aria-label={`marker-${m.id}`}
-                  className={`rounded-full border-2 shadow ${
-                    isSelected ? "bg-red-600 border-white" : "bg-blue-600 border-white"
+                onClick={(e) => handleMarkerClick(e, m.id)}
+                onContextMenu={(e) => e.preventDefault()}
+                aria-label={`marker-${m.id}`}
+                className={`rounded-full border-2 shadow ${isSelected ? "bg-red-600 border-white" : "bg-blue-600 border-white"
                   }`}
-                  style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box",opacity: showNodes ? 1 : 0, pointerEvents: showNodes ? 'auto' : 'none'}}
-                  title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
-                />
+                style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box", opacity: showNodes ? 1 : 0, pointerEvents: showNodes ? 'auto' : 'none' }}
+                title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
+              />
             </Marker>
           );
         })}

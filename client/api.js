@@ -30,12 +30,8 @@ export const addNode = async (id, lng, lat) => {
         }
     }
 
-    const res = await API.post("/map/", { feature });
-    if (res.status == 201) {
-        return true;
-    } else {
-        return false;
-    }
+    const resp = await API.post("/map/", { feature });
+    return resp.status == 201
 }
 
 export const editNode = async (id, lng, lat) => {
@@ -55,22 +51,14 @@ export const editNode = async (id, lng, lat) => {
         }
     }
 
-    const res = await API.put("/map/", { feature });
-    if (res.status == 201) {
-        return true;
-    } else {
-        return false;
-    }
+    const resp = await API.put("/map/", { feature });
+    return resp.status == 201
 }
 
 export const setADAStatus = async (key, value, featureType) => {
 
-    const res = await API.patch("/map/adastatus", { key, value, featureType });
-    if (res.status == 200) {
-        return true;
-    } else {
-        return false;
-    }
+    const resp = await API.patch("/map/adastatus", { key, value, featureType });
+    return resp.status == 200
 }
 
 
@@ -89,20 +77,49 @@ export const addEdge = async (key, to, from, cords) => {
         }
     }
 
-    const res = await API.post("/map/", { feature });
-    if (res.status == 201) {
-        return true;
-    } else {
-        return false;
-    }
+    const resp = await API.post("/map/", { feature });
+    return resp.status == 201
 }
 
 export const deleteFeature = async (featureKey, featureType) => {
-    const res = await API.delete("/map/", { data: { featureKey: featureKey, featureType: featureType } });
+    const resp = await API.delete("/map/", { data: { featureKey: featureKey, featureType: featureType } });
+    return resp.status == 200
+}
 
-    if (res.status == 200) {
-        return true;
-    } else {
-        return false;
-    }
+
+
+export const addBuilding = async (name) => {
+    const resp = await API.post("/building/", { name });
+    return resp
+}
+
+export const editBuilding = async (id,name) => {
+    const resp = await API.put("/building/", {id, name });
+    return resp
+}
+
+export const deleteBuilding = async (id) => {
+    const resp = await API.delete("/building/", {data:{id:id} });
+    return resp
+}
+
+export const getAllBuildings= async ()=>{
+    const resp = await API.get("/building/")
+    return resp 
+}
+
+export const getAllBuildingNodes= async (id)=>{
+    const resp = await API.get("/building/nodesget?id="+id)
+    return resp 
+}
+
+export const attachNodeToBuilding = async (buildingId,nodeId) => {
+    const resp = await API.post("/building/nodeadd",{buildingId,nodeId})
+    console.log(resp)
+    return resp.status == 200
+}
+
+export const detachNodeFromBuilding = async (buildingId,nodeId) => {
+    const resp = await API.post("/building/noderemove",{buildingId,nodeId})
+    return resp.status == 200
 }

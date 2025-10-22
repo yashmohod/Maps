@@ -41,39 +41,39 @@ class Buildings(db.Model):
 
 
 
-db.create_all()
-dir_path = os.path.dirname(os.path.realpath(__file__))
-with open(dir_path+'/../../Dev/phaseOne.geojson', 'r') as file:
-    geojson_data = geojson.load(file)
+# db.create_all()
+# dir_path = os.path.dirname(os.path.realpath(__file__))
+# with open(dir_path+'/../../Dev/phaseOne.geojson', 'r') as file:
+#     geojson_data = geojson.load(file)
 
-    for i in range(len(geojson_data.features)):
-            if geojson_data.features[i].geometry.type == "Point":
-                # print(geojson_data.features[i])
-                if not db.session.query(db.exists().where(Nodes.key == geojson_data.features[i].id)).scalar():
-                    node = Nodes(
-                        key = geojson_data.features[i].id,
-                        lng = geojson_data.features[i].geometry.coordinates[0],
-                        lat = geojson_data.features[i].geometry.coordinates[1],
-                        featureGeojson = json.dumps(geojson_data.features[i]),
-                        building_id=None,
-                        ada = False, 
-                    )
-                    db.session.add(node)
+#     for i in range(len(geojson_data.features)):
+#             if geojson_data.features[i].geometry.type == "Point":
+#                 # print(geojson_data.features[i])
+#                 if not db.session.query(db.exists().where(Nodes.key == geojson_data.features[i].id)).scalar():
+#                     node = Nodes(
+#                         key = geojson_data.features[i].id,
+#                         lng = geojson_data.features[i].geometry.coordinates[0],
+#                         lat = geojson_data.features[i].geometry.coordinates[1],
+#                         featureGeojson = json.dumps(geojson_data.features[i]),
+#                         building_id=None,
+#                         ada = False, 
+#                     )
+#                     db.session.add(node)
         
 
             
-            if geojson_data.features[i].geometry.type == "LineString":
-                # print(geojson_data.features[i])
-                cur = geojson_data.features[i].properties
-                if not db.session.query(db.exists().where(Edges.key == cur["key"])).scalar():
-                    edge = Edges(
-                        key = cur["key"],
-                        eFrom = cur["from"],
-                        eTo = cur["to"],
-                        featureGeojson = json.dumps(geojson_data.features[i])
-                    )
+#             if geojson_data.features[i].geometry.type == "LineString":
+#                 # print(geojson_data.features[i])
+#                 cur = geojson_data.features[i].properties
+#                 if not db.session.query(db.exists().where(Edges.key == cur["key"])).scalar():
+#                     edge = Edges(
+#                         key = cur["key"],
+#                         eFrom = cur["from"],
+#                         eTo = cur["to"],
+#                         featureGeojson = json.dumps(geojson_data.features[i])
+#                     )
     
-                    db.session.add(edge)
-    db.session.commit()
+#                     db.session.add(edge)
+#     db.session.commit()
 
 

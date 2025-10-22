@@ -26,8 +26,8 @@ with app.app_context():
     from maps.routes.map import map_bp
     app.register_blueprint(map_bp, url_prefix="/map")
     
-    #from maps.routes.buildingGroup import building_bp
-    #app.register_blueprint(building_bp, url_prefix="/building")
+    from maps.routes.buildingGroup import building_bp
+    app.register_blueprint(building_bp, url_prefix="/building")
 
     from maps.routes.navigation import navigation_bp
     app.register_blueprint(navigation_bp, url_prefix="/navigation")

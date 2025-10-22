@@ -13,14 +13,14 @@ Building Group
 def BuildingAdd():
     if request.data == None:
         return jsonify({"message": "Feature data not provided"}), 400
-    data = request.data
+    data = json.loads(request.data)
 
     exists = db.session.query(db.exists().where(Buildings.name == data["name"])).scalar()
 
     if exists:
         return jsonify({"message": "Building with name '"+data["name"]+"' exists already!"}), 400
     else:
-        building = Buildings(name = data["Name"])
+        building = Buildings(name = data["name"])
         db.session.add(building)
         db.session.commit()
 
@@ -31,17 +31,17 @@ def BuildingAdd():
 def BuildingEdit():
     if request.data == None:
         return jsonify({"message": "Feature data not provided"}), 400
-    data = request.data
+    data = json.loads(request.data)
 
-    curBuildings = Buildings.query.get(data["id"]).first()
+    curBuildings = Buildings.query.get(data["id"])
     curBuildings.name = data["name"]
     db.session.commit()
 
-    return jsonify({"message": "Building added!"}), 201
+    return jsonify({"message": "Building added!"}), 200
 
 
 
-@building_bp.route("/all", methods=["GET"])
+@building_bp.route("/", methods=["GET"])
 def BuildingGetAll():
 
     res = Buildings.query.all() 
@@ -51,64 +51,82 @@ def BuildingGetAll():
             "id": i.id,
             "name": i.name
         })
-    return jsonify({"buildings": buildings}), 201
+    return jsonify({"buildings": buildings}), 200
 
-
-
-@building_bp.route("/", methods=["GET"])
-def BuildingGetAllNodes():
-    id = request.args.get("id") 
-    curBuilding = Buildings.query.get(id).first()
-    nodes = [] 
-    for node in curBuilding.nodes:
-        nodes.append({
-            node.id:{
-                "id":node.id,
-                "lng":node.lng,
-                'lat':node.lat
-            }
-        })
-    
-    return jsonify({"nodes":nodes}), 201
 
 @building_bp.route("/", methods=["DELETE"])
 def MapFeatureDelete():
 
     data = json.loads(request.data)
 
-    featureKey = data["featureKey"]
-    featureType = data["featureType"]
+    curBuilding = Buildings.query.get(data["id"])
 
-    found = False
+    for i in curBuilding.nodes:
+        curBuilding.nodes.remove(i)
+    
+    db.session.delete(curBuilding)
 
-    if featureType == "Point":
-        found = True
+    db.session.commit()
 
-        node = Nodes.query.filter_by(key = featureKey ).first()
+    return jsonify({"message":"Building deleted!"}),200
 
-        edgeFrom = Edges.query.filter_by(eFrom = node.id ).all()
-        edgeTo = Edges.query.filter_by(eTo = node.id ).all()
 
-        for edge in edgeFrom:
-            db.session.delete(edge)
 
-        for edge in edgeTo:
-            db.session.delete(edge)
 
-        db.session.delete(node)
 
-    elif featureType == "Edge":
-        found = True
-        edge = Edges.query.filter_by(key = featureKey ).first()
-        db.session.delete(edge)
+# Building Nodes (entrances)
+@building_bp.route("/nodesget", methods=["GET"])
+def BuildingGetAllNodes():
+    id = request.args.get("id") 
+    curBuilding = Buildings.query.get(id)
+    nodes = []
+    for node in curBuilding.nodes:
+        nodes.append({
+                "id":node.key,
+                "lng":node.lng,
+                'lat':node.lat
+            })
+        # nodes.append(node.id)
+    
+    
+    return jsonify({"nodes":nodes}), 201
 
-    else:
-        return jsonify({"message": "No valid feature type mentioned. Hint: Point or Edge."}), 400
 
-    if found:
+@building_bp.route("/nodeadd", methods=["POST"])
+def BuildingNodeAdd():
+
+    if request.data == None:
+        return jsonify({"message": "Feature data not provided"}), 400
+    data = json.loads(request.data)
+
+    curBuilding = Buildings.query.get(data["buildingId"])
+    curNode = Nodes.query.filter_by(key =data["nodeId"]).first()
+
+    if curNode not in curBuilding.nodes:
+        curBuilding.nodes.append(curNode)
         db.session.commit()
-        return jsonify({"message": "Feature deleted."}), 200
+        return jsonify({"message": "Node added!"}), 200
+
     else:
-        return jsonify({"message": "Feature not found."}), 404
+        return jsonify({"message": "Node already attached to the building"}), 400 
+    
 
+    
 
+@building_bp.route("/noderemove", methods=["POST"])
+def BuildingNodeRemove():
+
+    if request.data == None:
+        return jsonify({"message": "Feature data not provided"}), 400
+    data = json.loads(request.data)
+
+    curBuilding = Buildings.query.get(data["buildingId"])
+    curNode = Nodes.query.filter_by(key =data["nodeId"]).first()
+
+    if curNode in curBuilding.nodes:
+        curBuilding.nodes.remove(curNode)
+        db.session.commit()
+        return jsonify({"message": "Node added!"}), 200
+
+    else:
+        return jsonify({"message": "Node not attached to the building"}), 400 

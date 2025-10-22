@@ -117,6 +117,38 @@ def MapFeatureGetAll():
 
     return json.dumps(res), 201
 
+@map_bp.route("/adaall", methods=["GET"])
+def MapFeatureGetAllADA():
+    editor = request.args.get("editor")
+
+    if editor:
+        nodes =[]
+        for node in Nodes.query.with_entities(Nodes.key,Nodes.ada).all():
+            if node.ada:
+                nodes.append(node.key)
+        edges = []
+        for edge in Edges.query.with_entities(Edges.key,Edges.ada).all():
+            if edge.ada:
+                edges.append(edge.key)
+
+        return jsonify({"edges": edges,"nodes":nodes}), 200
+
+    else:
+        res = {
+        "type": "FeatureCollection",
+        "features": []
+        }
+
+        for node in Nodes.query.with_entities(Nodes.featureGeojson,Nodes.ada).all():
+            if node.ada:
+                res["features"].append(json.loads(node[0]))
+
+        for edge in Edges.query.with_entities(Edges.featureGeojson,Nodes.ada).all():
+            if edge.ada:
+                res["features"].append(json.loads(edge[0]))
+
+        return json.dumps(res), 200
+
 
 
 @map_bp.route("/", methods=["GET"])

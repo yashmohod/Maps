@@ -13,6 +13,13 @@ export const getAllMapFeature = async () => {
 
 }
 
+export const getAllMapFeatureADA = async (editor) => {
+
+    const res = await API.get(`/map/adaall?editor=`+editor);
+    return res;
+
+}
+
 export const addNode = async (id, lng, lat) => {
 
     let feature = {

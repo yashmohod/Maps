@@ -131,6 +131,13 @@ export const detachNodeFromBuilding = async (buildingId, nodeId) => {
     return resp.status == 200
 }
 
+// buildingpos
+
+export const getBuildingPos = async (buildingId) => {
+    const resp = await API.get("/navigation/buildingpos?buildingid=" + buildingId)
+    return resp
+
+}
 
 export const getRouteTo = async (buildingId, lat, lng) => {
     console.log("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng)

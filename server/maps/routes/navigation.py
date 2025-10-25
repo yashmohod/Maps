@@ -17,6 +17,15 @@ def ping():
 
 
 
+@navigation_bp.route("/buildingpos", methods=["GET"])
+def buildingPos():
+
+    buildingID = request.args.get("buildingid") 
+
+    print(buildingID)
+
+    return jsonify({"message": "Connection Healthy!"}), 200
+
 @navigation_bp.route("/routeto", methods=["GET"])
 def routeTo():
 

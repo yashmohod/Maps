@@ -242,60 +242,21 @@ export default function NavigationMap() {
 
 
     async function showRoute(id) {
-        await diagEnv();
-
-        if (!("geolocation" in navigator)) {
-            const msg = "Geolocation not supported";
-            console.log("[geo] hard error:", msg);
-            setLastGeoMsg(msg);
-            alert(msg);
-            return;
-        }
-        if (!window.isSecureContext) {
-            const msg = "Location requires HTTPS (or localhost)";
-            console.log("[geo] hard error:", msg);
-            setLastGeoMsg(msg);
-            alert(msg);
-            return;
-        }
-
-
-        const attemptC = () =>
-            new Promise((resolve, reject) => {
-                let cleared = false;
-                const id = navigator.geolocation.watchPosition(
-                    (pos) => {
-                        if (cleared) return;
-                        cleared = true;
-                        navigator.geolocation.clearWatch(id);
-                        resolve(pos);
-                    },
-                    (err) => {
-                        if (cleared) return;
-                        cleared = true;
-                        navigator.geolocation.clearWatch(id);
-                        reject(err);
-                    },
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-                );
-                setTimeout(() => {
-                    if (!cleared) {
-                        cleared = true;
-                        navigator.geolocation.clearWatch(id);
-                        reject({ code: 3, message: "Watch timeout" });
-                    }
-                }, 17000);
-            });
-
-        const pos = await attemptC();
-
-
-        const { lng, lat, accuracy } = pos.coords;
-        console.log(lng, lat)
-
-        // let resp = await getRouteTo(id, lat, lng);
+       navigator.geolocation.getCurrentPosition(
+      (position) => {
+        let lng =position.coords.latitude;
+        let lat= position.coords.longitude;
+        let resp =  getRouteTo(id, lat, lng);
 
         // console.log(resp)
+      },
+      (err) => {
+        console.log(err.message);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 } // Optional configuration
+    );
+
+        
 
     }
 

@@ -28,8 +28,46 @@ export default function NavigationMap() {
     const [mapReady, setMapReady] = useState(false);
     const [lastGeoMsg, setLastGeoMsg] = useState(""); // debug line
 
+    const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
+    const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
     const mapRef = useRef(null);
     const watchIdRef = useRef(null);
+
+
+    const edgesGeoJSON = useMemo(() => {
+        const coord = new Map(markers.map((m) => [m.id, [m.lng, m.lat]]));
+        return {
+            type: "FeatureCollection",
+            features: edgeIndex
+                .map(({ key, from, to }) => {
+                    const a = coord.get(from);
+                    const b = coord.get(to);
+                    if (!a || !b) return null;
+                    return {
+                        type: "Feature",
+                        properties: { key, from, to },
+                        geometry: { type: "LineString", coordinates: [a, b] },
+                    };
+                })
+                .filter(Boolean),
+        };
+    }, [markers, edgeIndex]);
+
+    const lineLayer = useMemo(
+        () => ({
+            id: "graph-edges",
+            type: "line",
+            source: "edges",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+                "line-width": 5,
+                "line-color": "#16a34a",
+                "line-opacity": 0.95,
+            },
+        }),
+        []
+    );
+
 
 
     // Demo ADA data
@@ -241,9 +279,12 @@ export default function NavigationMap() {
             return;
         }
 
-        let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng)
+        // let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng)
+        let resp = await getRouteTo(selectedDest, 42.424500, -76.491837)
         console.log(resp)
-
+        console.log(resp.data)
+        setMarkers(resp.data.nodes)
+        setEdgeIndex(resp.data.edges)
 
         // if (!("geolocation" in navigator)) {
         //     const msg = "Geolocation not supported";
@@ -448,7 +489,7 @@ export default function NavigationMap() {
                     setMapReady(true);
                 }}
             >
-                {showADARoutes && (
+                {/* {showADARoutes && (
                     <Source id="ada-routes" type="geojson" data={ADA_ROUTES_FC}>
                         <Layer {...adaRouteLayer} />
                     </Source>
@@ -458,7 +499,7 @@ export default function NavigationMap() {
                     <Source id="ada-entrances" type="geojson" data={ADA_ENTRANCES_FC}>
                         <Layer {...adaEntranceLayer} />
                     </Source>
-                )}
+                )} */}
 
                 {accuracyGeoJSON && (
                     <Source id="loc-accuracy" type="geojson" data={accuracyGeoJSON}>
@@ -466,6 +507,31 @@ export default function NavigationMap() {
                         <Layer {...accuracyLine} />
                     </Source>
                 )}
+
+                <Source id="edges" type="geojson" data={edgesGeoJSON}>
+                    <Layer {...lineLayer} />
+                </Source>
+
+                {/* {markers.map((m) => {
+
+
+                    return (
+                        <Marker
+                            key={m.id}
+                            longitude={m.lng}
+                            latitude={m.lat}
+                            anchor="center"
+                        >
+                            <button
+                                onContextMenu={(e) => e.preventDefault()}
+                            // aria-label={`marker-${m.id}`}
+                            // className={`rounded-full border-2 shadow ${colorClass} border-white`}
+                            // style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box", opacity: showNodes ? 1 : 0, pointerEvents: showNodes ? "auto" : "none" }}
+                            // title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
+                            />
+                        </Marker>
+                    );
+                })} */}
 
                 {userPos && (
                     <Marker longitude={userPos.lng} latitude={userPos.lat} anchor="center">

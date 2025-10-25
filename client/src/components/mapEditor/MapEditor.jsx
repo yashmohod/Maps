@@ -299,40 +299,43 @@ export default function MapEditor() {
 
   // Bootstrap
   async function getAllFeature() {
-    const fc = await getAllMapFeature();
-    if (markers.length > 0) return;
-    if (fc?.type !== "FeatureCollection" || !Array.isArray(fc.features)) {
-      alert("Invalid GeoJSON FeatureCollection.");
-      return;
-    }
-    const nextMarkers = [];
-    const nextEdges = [];
-    for (const f of fc.features) {
-      if (f?.geometry?.type === "Point") {
-        const id = f.id ?? f.properties?.id;
-        const [lng, lat] = f.geometry.coordinates || [];
-        if (id && Number.isFinite(lng) && Number.isFinite(lat)) nextMarkers.push({ id, lng, lat });
-      } else if (f?.geometry?.type === "LineString") {
-        const from = f.properties?.from;
-        const to = f.properties?.to;
-        if (from && to) nextEdges.push({ key: edgeKey(from, to), from, to });
-      }
-    }
-    const ids = new Set(nextMarkers.map((m) => m.id));
-    if (ids.size !== nextMarkers.length) {
-      alert("Duplicate node ids in import.");
-      return;
-    }
-    setMarkers(nextMarkers);
-    const uniq = [];
-    const seen = new Set();
-    for (const e of nextEdges) {
-      if (seen.has(e.key)) continue;
-      seen.add(e.key);
-      uniq.push(e);
-    }
-    setEdgeIndex(uniq);
-    setSelectedId(null);
+    const resp = await getAllMapFeature();
+    console.log(resp)
+    setMarkers(resp.data.nodes)
+    setEdgeIndex(resp.data.edges)
+    // if (markers.length > 0) return;
+    // if (fc?.type !== "FeatureCollection" || !Array.isArray(fc.features)) {
+    //   alert("Invalid GeoJSON FeatureCollection.");
+    //   return;
+    // }
+    // const nextMarkers = [];
+    // const nextEdges = [];
+    // for (const f of fc.features) {
+    //   if (f?.geometry?.type === "Point") {
+    //     const id = f.id ?? f.properties?.id;
+    //     const [lng, lat] = f.geometry.coordinates || [];
+    //     if (id && Number.isFinite(lng) && Number.isFinite(lat)) nextMarkers.push({ id, lng, lat });
+    //   } else if (f?.geometry?.type === "LineString") {
+    //     const from = f.properties?.from;
+    //     const to = f.properties?.to;
+    //     if (from && to) nextEdges.push({ key: edgeKey(from, to), from, to });
+    //   }
+    // }
+    // const ids = new Set(nextMarkers.map((m) => m.id));
+    // if (ids.size !== nextMarkers.length) {
+    //   alert("Duplicate node ids in import.");
+    //   return;
+    // }
+    // setMarkers(nextMarkers);
+    // const uniq = [];
+    // const seen = new Set();
+    // for (const e of nextEdges) {
+    //   if (seen.has(e.key)) continue;
+    //   seen.add(e.key);
+    //   uniq.push(e);
+    // }
+    // setEdgeIndex(uniq);
+    // setSelectedId(null);
   }
 
   async function getBuildings() {
@@ -433,8 +436,8 @@ export default function MapEditor() {
     map.flyTo({ center: [m.lng, m.lat], zoom: 18, essential: true });
   }
 
-  async function getADAFeatures(){
-    let resp = await getAllMapFeatureADA(true)
+  async function getADAFeatures() {
+    let resp = await getAllMapFeatureADA(editor = true)
     console.log(resp)
 
     setCurADAEdges(new Set(resp.data.edges));
@@ -449,7 +452,7 @@ export default function MapEditor() {
       <div className="absolute z-20 top-3 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
         <span className="text-sm font-medium">Mode:</span>
         <button className={`px-2 py-1 rounded ${mode === "select" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("select")}>Draw</button>
-        <button className={`px-2 py-1 rounded ${mode === "ada" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() =>{ setMode("ada");getADAFeatures();  }}>ADA Select</button>
+        <button className={`px-2 py-1 rounded ${mode === "ada" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => { setMode("ada"); getADAFeatures(); }}>ADA Select</button>
         <button className={`px-2 py-1 rounded ${mode === "buildingGroup" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("buildingGroup")}>Building Select</button>
         <button className={`px-2 py-1 rounded ${mode === "edit" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("edit")}>Edit</button>
         <button className={`px-2 py-1 rounded ${mode === "delete" ? "bg-red-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("delete")}>Delete</button>

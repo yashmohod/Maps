@@ -62,7 +62,25 @@ def routeTo():
 
     path = bfs(startid,destid)
 
-    print(path)
+    
+    edges=[]
+    nodes=[]
 
-    return jsonify({"message": "Connection Healthy!"}), 200
+    for i in range(len(path)-1):
+        n1 = Nodes.query.get(path[i])
+        n2 = Nodes.query.get(path[i+1])
+        nodes.append({"id":n1.key,"lng":n1.lng,"lat":n1.lat})
+        if i == len(path)-2:
+            nodes.append({"id":n2.key,"lng":n2.lng,"lat":n2.lat})
+        edgeKey = n1.key+"__"+n2.key
+        edgeKey_alt = n2.key+"__"+n1.key
+
+        edge = Edges.query.filter_by(key=edgeKey).first()
+        edge_alt = Edges.query.filter_by(key=edgeKey_alt).first()
+        if edge: 
+            edges.append({"key":edge.key,"from":edge.eFrom,"to":edge.eTo})
+        else: 
+            edges.append({"key":edge_alt.key,"from":edge_alt.eFrom,"to":edge_alt.eTo})
+
+    return jsonify({"edges":edges,"nodes":nodes}), 200
 

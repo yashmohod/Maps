@@ -9,7 +9,7 @@ const API = axios.create({
 export const getAllMapFeature = async () => {
 
     const res = await API.get(`/map/all`);
-    return res.data;
+    return res;
 
 }
 

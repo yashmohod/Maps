@@ -50,6 +50,7 @@ class Edges(db.Model):
     key = db.Column(db.String(80), unique=True, nullable=False)
     eFrom = db.Column(db.String(80), nullable=False)
     eTo = db.Column(db.String(80), nullable=False)
+    
     featureGeojson = db.Column(db.Text(), unique=True, nullable=False)
     ada = db.Column(db.Boolean, default =False)
 

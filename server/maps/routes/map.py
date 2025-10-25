@@ -111,18 +111,16 @@ def SetADAStatus():
 @map_bp.route("/all", methods=["GET"])
 def MapFeatureGetAll():
 
-    res = {
-    "type": "FeatureCollection",
-    "features": []
-    }
+    edges=[]
+    nodes=[]
 
-    for node in Nodes.query.with_entities(Nodes.featureGeojson).all():
-        res["features"].append(json.loads(node[0]))
+    for node in Nodes.query.all():
+        nodes.append({"id":node.key,"lng":node.lng,"lat":node.lat})
 
-    for edges in Edges.query.with_entities(Edges.featureGeojson).all():
-        res["features"].append(json.loads(edges[0]))
+    for edge in Edges.query.all():
+        edges.append({"key":edge.key,"from":edge.eFrom,"to":edge.eTo})
 
-    return json.dumps(res), 201
+    return jsonify({"edges":edges,"nodes":nodes}), 200
 
 @map_bp.route("/adaall", methods=["GET"])
 def MapFeatureGetAllADA():

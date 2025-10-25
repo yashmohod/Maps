@@ -20,7 +20,10 @@ def BuildingAdd():
     if exists:
         return jsonify({"message": "Building with name '"+data["name"]+"' exists already!"}), 400
     else:
-        building = Buildings(name = data["name"])
+        building = Buildings(
+            name = data["name"]
+            
+            )
         db.session.add(building)
         db.session.commit()
 

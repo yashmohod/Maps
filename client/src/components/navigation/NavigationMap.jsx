@@ -2,8 +2,15 @@
 "use client";
 import { useRef, useState, useMemo, useEffect } from "react";
 import { Map as ReactMap, Source, Layer, Marker } from "@vis.gl/react-maplibre";
+import toast, { Toaster } from "react-hot-toast";
 import "maplibre-gl/dist/maplibre-gl.css";
-
+import {
+    getAllMapFeature,
+    getAllBuildings,
+    getAllBuildingNodes,
+    getAllMapFeatureADA,
+    getRouteTo
+} from "../../../api";
 export default function NavigationMap() {
     const [viewState, setViewState] = useState({
         longitude: -76.494131,
@@ -14,7 +21,7 @@ export default function NavigationMap() {
     const [selectedDest, setSelectedDest] = useState("");
     const [showADAEntrances, setShowADAEntrances] = useState(false);
     const [showADARoutes, setShowADARoutes] = useState(false);
-
+    const [buildings, setBuildings] = useState([]);
     const [userPos, setUserPos] = useState(null); // {lng,lat,accuracy}
     const [tracking, setTracking] = useState(false);
     const [mapReady, setMapReady] = useState(false);
@@ -23,12 +30,6 @@ export default function NavigationMap() {
     const mapRef = useRef(null);
     const watchIdRef = useRef(null);
 
-    // Demo destinations
-    const DESTINATIONS = [
-        { id: "bldg-a", name: "Alpha Hall", lng: -76.4933, lat: 42.4228 },
-        { id: "bldg-b", name: "Beta Center", lng: -76.4959, lat: 42.4216 },
-        { id: "bldg-c", name: "Gamma Library", lng: -76.4908, lat: 42.4232 },
-    ];
 
     // Demo ADA data
     const ADA_ENTRANCES_FC = useMemo(
@@ -158,8 +159,6 @@ export default function NavigationMap() {
 
     function handleGeoSuccess(pos) {
         const { longitude, latitude, accuracy } = pos.coords;
-        console.log("[geo] position:", { longitude, latitude, accuracy });
-        setLastGeoMsg(`lat:${latitude.toFixed(6)}, lng:${longitude.toFixed(6)}, acc:${Math.round(accuracy)}m`);
         setUserPos({ lng: longitude, lat: latitude, accuracy });
         ensureCenter(longitude, latitude, 16);
     }
@@ -184,6 +183,7 @@ export default function NavigationMap() {
     }
 
     async function locateOnceRobust() {
+        console.log("here")
         await diagEnv();
 
         if (!("geolocation" in navigator)) {
@@ -201,23 +201,6 @@ export default function NavigationMap() {
             return;
         }
 
-        const attemptA = () =>
-            new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve(pos),
-                    (err) => reject(err),
-                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-                );
-            });
-
-        const attemptB = () =>
-            new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve(pos),
-                    (err) => reject(err),
-                    { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
-                );
-            });
 
         const attemptC = () =>
             new Promise((resolve, reject) => {
@@ -246,33 +229,84 @@ export default function NavigationMap() {
                 }, 17000);
             });
 
-        try {
-            const pos = await attemptA();
-            handleGeoSuccess(pos);
+        const pos = await attemptC();
+
+
+        const { longitude, latitude, accuracy } = pos.coords;
+        console.log(longitude, latitude, accuracy)
+        // setUserPos({ lng: longitude, lat: latitude, accuracy });
+        // ensureCenter(longitude, latitude, 16);
+
+
+    }
+
+
+    async function showRoute(id) {
+        await diagEnv();
+
+        if (!("geolocation" in navigator)) {
+            const msg = "Geolocation not supported";
+            console.log("[geo] hard error:", msg);
+            setLastGeoMsg(msg);
+            alert(msg);
             return;
-        } catch (errA) {
-            handleGeoError("attemptA", errA);
+        }
+        if (!window.isSecureContext) {
+            const msg = "Location requires HTTPS (or localhost)";
+            console.log("[geo] hard error:", msg);
+            setLastGeoMsg(msg);
+            alert(msg);
+            return;
         }
 
-        try {
-            const pos = await attemptB();
-            handleGeoSuccess(pos);
-            return;
-        } catch (errB) {
-            handleGeoError("attemptB", errB);
-        }
 
-        try {
-            const pos = await attemptC();
-            handleGeoSuccess(pos);
-            return;
-        } catch (errC) {
-            handleGeoError("attemptC", errC);
-            alert("Could not acquire location (device may have location disabled or no signal).");
-        }
+        const attemptC = () =>
+            new Promise((resolve, reject) => {
+                let cleared = false;
+                const id = navigator.geolocation.watchPosition(
+                    (pos) => {
+                        if (cleared) return;
+                        cleared = true;
+                        navigator.geolocation.clearWatch(id);
+                        resolve(pos);
+                    },
+                    (err) => {
+                        if (cleared) return;
+                        cleared = true;
+                        navigator.geolocation.clearWatch(id);
+                        reject(err);
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+                );
+                setTimeout(() => {
+                    if (!cleared) {
+                        cleared = true;
+                        navigator.geolocation.clearWatch(id);
+                        reject({ code: 3, message: "Watch timeout" });
+                    }
+                }, 17000);
+            });
+
+        const pos = await attemptC();
+
+
+        const { lng, lat, accuracy } = pos.coords;
+        console.log(lng, lat)
+
+        // let resp = await getRouteTo(id, lat, lng);
+
+        // console.log(resp)
+
     }
 
     function startTracking() {
+
+        console.log(selectedDest === "")
+
+        if (selectedDest === "") {
+            toast.error("Please select a destination before starting route.")
+        }
+
         if (!("geolocation" in navigator)) {
             const msg = "Geolocation not supported";
             setLastGeoMsg(msg);
@@ -286,6 +320,7 @@ export default function NavigationMap() {
             return;
         }
         if (watchIdRef.current != null) return;
+
         const id = navigator.geolocation.watchPosition(
             (pos) => {
                 const { longitude, latitude, accuracy } = pos.coords;
@@ -314,6 +349,15 @@ export default function NavigationMap() {
         setTracking(false);
     }
 
+    async function getBuildings() {
+        const resp = await getAllBuildings();
+        if (resp?.status === 200) setBuildings(resp.data.buildings || []);
+        else toast.error("Buildings did not load!");
+    }
+    useEffect(() => {
+        getBuildings();
+    }, [])
+
     useEffect(() => {
         if (tracking && userPos) ensureCenter(userPos.lng, userPos.lat, 16);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,10 +371,11 @@ export default function NavigationMap() {
 
     return (
         <div className="w-full h-screen relative">
+            <Toaster position="top-right" reverseOrder />
             {/* On-screen debug for geolocation */}
-            <div className="absolute z-30 top-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs">
+            {/* <div className="absolute z-30 top-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs">
                 {lastGeoMsg || "geo: —"}
-            </div>
+            </div> */}
 
             {/* Mobile bottom sheet (phone-first) */}
             <div className="md:hidden absolute z-20 left-0 right-0 bottom-0 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0)+12px)] bg-white/95 backdrop-blur rounded-t-2xl shadow flex flex-col gap-3">
@@ -345,11 +390,13 @@ export default function NavigationMap() {
                         onChange={(e) => {
                             const id = e.target.value;
                             setSelectedDest(id);
-                            if (id) flyToSelected(id);
+                            showRoute(id)
+
+                            // if (id) flyToSelected(id);
                         }}
                     >
                         <option value="">Select…</option>
-                        {DESTINATIONS.map((d) => (
+                        {buildings.map((d) => (
                             <option key={d.id} value={d.id}>
                                 {d.name}
                             </option>
@@ -389,11 +436,12 @@ export default function NavigationMap() {
                         onChange={(e) => {
                             const id = e.target.value;
                             setSelectedDest(id);
-                            if (id) flyToSelected(id);
+                            showRoute(id)
+                            // if (id) flyToSelected(id);
                         }}
                     >
                         <option value="">Select…</option>
-                        {DESTINATIONS.map((d) => (
+                        {buildings.map((d) => (
                             <option key={d.id} value={d.id}>
                                 {d.name}
                             </option>

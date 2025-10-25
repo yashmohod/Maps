@@ -15,7 +15,7 @@ export const getAllMapFeature = async () => {
 
 export const getAllMapFeatureADA = async (editor) => {
 
-    const res = await API.get(`/map/adaall?editor=`+editor);
+    const res = await API.get(`/map/adaall?editor=` + editor);
     return res;
 
 }
@@ -100,33 +100,42 @@ export const addBuilding = async (name) => {
     return resp
 }
 
-export const editBuilding = async (id,name) => {
-    const resp = await API.put("/building/", {id, name });
+export const editBuilding = async (id, name) => {
+    const resp = await API.put("/building/", { id, name });
     return resp
 }
 
 export const deleteBuilding = async (id) => {
-    const resp = await API.delete("/building/", {data:{id:id} });
+    const resp = await API.delete("/building/", { data: { id: id } });
     return resp
 }
 
-export const getAllBuildings= async ()=>{
+export const getAllBuildings = async () => {
     const resp = await API.get("/building/")
-    return resp 
+    return resp
 }
 
-export const getAllBuildingNodes= async (id)=>{
-    const resp = await API.get("/building/nodesget?id="+id)
-    return resp 
+export const getAllBuildingNodes = async (id) => {
+    const resp = await API.get("/building/nodesget?id=" + id)
+    return resp
 }
 
-export const attachNodeToBuilding = async (buildingId,nodeId) => {
-    const resp = await API.post("/building/nodeadd",{buildingId,nodeId})
+export const attachNodeToBuilding = async (buildingId, nodeId) => {
+    const resp = await API.post("/building/nodeadd", { buildingId, nodeId })
     console.log(resp)
     return resp.status == 200
 }
 
-export const detachNodeFromBuilding = async (buildingId,nodeId) => {
-    const resp = await API.post("/building/noderemove",{buildingId,nodeId})
+export const detachNodeFromBuilding = async (buildingId, nodeId) => {
+    const resp = await API.post("/building/noderemove", { buildingId, nodeId })
     return resp.status == 200
+}
+
+
+export const getRouteTo = async (buildingId, lat, lng) => {
+    console.log("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng)
+    const resp = await API.get("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng)
+
+    return resp
+
 }

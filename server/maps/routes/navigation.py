@@ -22,21 +22,47 @@ def buildingPos():
 
     buildingID = request.args.get("buildingid") 
 
-    print(buildingID)
+    curBuilding = Buildings.query.get(buildingID)
+    points = []
+    for node in curBuilding.nodes:
+        points.append([node.lat,node.lng])
 
-    return jsonify({"message": "Connection Healthy!"}), 200
+    lat,lng = buildingPosCaluator(points)    
+
+
+    return jsonify({"lat":lat,"lng":lng}), 200
 
 @navigation_bp.route("/routeto", methods=["GET"])
 def routeTo():
 
     buildingID = request.args.get("buildingid") 
 
-    userLat = request.args.get("lat") 
-    userLng = request.args.get("lng") 
-    print(buildingID,userLat,userLng)
-    # node, d_m = nearest_node(db.session, userLat, userLng)
+    userLat = float(request.args.get("lat"))
+    userLng = float(request.args.get("lng")) 
+    curBuilding = Buildings.query.get(buildingID)
+    lngs=[]
+    lats=[]
+    ids=[]
+    for node in curBuilding.nodes:
+        lngs.append(node.lng)
+        lats.append(node.lat)
+        ids.append(node.id)
+    
+    destid = nearestPoint(userLng,userLat,lngs,lats,ids)
+    allNodes = Nodes.query.all()
+    lngs=[]
+    lats=[]
+    ids=[]
+    for node in allNodes:
+        lngs.append(node.lng)
+        lats.append(node.lat)
+        ids.append(node.id)
+    
+    startid = nearestPoint(userLng,userLat,lngs,lats,ids)
 
-    # print(node,d_m)
+    path = bfs(startid,destid)
+
+    print(path)
 
     return jsonify({"message": "Connection Healthy!"}), 200
 

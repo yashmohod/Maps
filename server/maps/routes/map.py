@@ -26,6 +26,13 @@ def MapFeatureAdd():
         db.session.add(node)
 
     elif data["geometry"]["type"] == "LineString":
+        nodeFrom = Nodes.query.filter_by(key=data["properties"]["from"] ).first()
+        nodeTo = Nodes.query.filter_by(key=data["properties"]["to"] ).first()
+
+        nodeFrom.adjacencyList.append(nodeTo)
+        nodeTo.adjacencyList.append(nodeFrom)
+
+
         edge = Edges(
                 key = data["properties"]["key"],
                 eFrom = data["properties"]["from"],

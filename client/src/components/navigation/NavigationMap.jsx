@@ -9,7 +9,8 @@ import {
     getAllBuildings,
     getAllBuildingNodes,
     getAllMapFeatureADA,
-    getRouteTo
+    getRouteTo,
+    getBuildingPos
 } from "../../../api";
 export default function NavigationMap() {
     const [viewState, setViewState] = useState({
@@ -33,43 +34,12 @@ export default function NavigationMap() {
 
     // Demo ADA data
     const ADA_ENTRANCES_FC = useMemo(
-        () => ({
-            type: "FeatureCollection",
-            features: [
-                {
-                    type: "Feature",
-                    properties: { id: "e1", label: "Alpha Hall - ADA Entrance" },
-                    geometry: { type: "Point", coordinates: [-76.49325, 42.42285] },
-                },
-                {
-                    type: "Feature",
-                    properties: { id: "e2", label: "Beta Center - ADA Entrance" },
-                    geometry: { type: "Point", coordinates: [-76.49585, 42.42165] },
-                },
-            ],
-        }),
+        () => ({}),
         []
     );
 
     const ADA_ROUTES_FC = useMemo(
-        () => ({
-            type: "FeatureCollection",
-            features: [
-                {
-                    type: "Feature",
-                    properties: { id: "r1" },
-                    geometry: {
-                        type: "LineString",
-                        coordinates: [
-                            [-76.4962, 42.4214],
-                            [-76.49585, 42.42165],
-                            [-76.4946, 42.4221],
-                            [-76.49325, 42.42285],
-                        ],
-                    },
-                },
-            ],
-        }),
+        () => ({}),
         []
     );
 
@@ -202,104 +172,111 @@ export default function NavigationMap() {
         }
 
 
-        const attemptC = () =>
-            new Promise((resolve, reject) => {
-                let cleared = false;
-                const id = navigator.geolocation.watchPosition(
-                    (pos) => {
-                        if (cleared) return;
-                        cleared = true;
-                        navigator.geolocation.clearWatch(id);
-                        resolve(pos);
-                    },
-                    (err) => {
-                        if (cleared) return;
-                        cleared = true;
-                        navigator.geolocation.clearWatch(id);
-                        reject(err);
-                    },
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-                );
-                setTimeout(() => {
-                    if (!cleared) {
-                        cleared = true;
-                        navigator.geolocation.clearWatch(id);
-                        reject({ code: 3, message: "Watch timeout" });
-                    }
-                }, 17000);
-            });
+        // const attemptC = () =>
+        //     new Promise((resolve, reject) => {
+        //         let cleared = false;
+        //         const id = navigator.geolocation.watchPosition(
+        //             (pos) => {
+        //                 if (cleared) return;
+        //                 cleared = true;
+        //                 navigator.geolocation.clearWatch(id);
+        //                 resolve(pos);
+        //             },
+        //             (err) => {
+        //                 if (cleared) return;
+        //                 cleared = true;
+        //                 navigator.geolocation.clearWatch(id);
+        //                 reject(err);
+        //             },
+        //             { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+        //         );
+        //         setTimeout(() => {
+        //             if (!cleared) {
+        //                 cleared = true;
+        //                 navigator.geolocation.clearWatch(id);
+        //                 reject({ code: 3, message: "Watch timeout" });
+        //             }
+        //         }, 17000);
+        //     });
 
-        const pos = await attemptC();
+        // const pos = await attemptC();
 
 
-        const { longitude, latitude, accuracy } = pos.coords;
-        console.log(longitude, latitude, accuracy)
+        // const { longitude, latitude, accuracy } = pos.coords;
+        // // console.log(longitude, latitude, accuracy)
         // setUserPos({ lng: longitude, lat: latitude, accuracy });
         // ensureCenter(longitude, latitude, 16);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { longitude, latitude, accuracy } = position.coords;
+                setUserPos({ lng: longitude, lat: latitude, accuracy });
+                ensureCenter(longitude, latitude, 16);
 
-
-    }
-
-
-    async function showRoute(id) {
-       navigator.geolocation.getCurrentPosition(
-      (position) => {
-        let lng =position.coords.latitude;
-        let lat= position.coords.longitude;
-        let resp =  getRouteTo(id, lat, lng);
-
-        // console.log(resp)
-      },
-      (err) => {
-        console.log(err.message);
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 } // Optional configuration
-    );
-
-        
+                // console.log(resp)
+            },
+            (err) => {
+                console.log(err.message);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
 
     }
 
-    function startTracking() {
+
+    async function showBuilding(id) {
+
+        let resp = await getBuildingPos(id)
+        console.log(resp)
+        let lat = resp.data.lat
+        let lng = resp.data.lng
+        ensureCenter(lng, lat, 17);
+    }
+
+    async function startTracking() {
 
         console.log(selectedDest === "")
 
         if (selectedDest === "") {
             toast.error("Please select a destination before starting route.")
-        }
-
-        if (!("geolocation" in navigator)) {
-            const msg = "Geolocation not supported";
-            setLastGeoMsg(msg);
-            alert(msg);
             return;
         }
-        if (!window.isSecureContext) {
-            const msg = "Location requires HTTPS (or localhost)";
-            setLastGeoMsg(msg);
-            alert(msg);
-            return;
-        }
-        if (watchIdRef.current != null) return;
 
-        const id = navigator.geolocation.watchPosition(
-            (pos) => {
-                const { longitude, latitude, accuracy } = pos.coords;
-                console.log("[geo] watch update:", { longitude, latitude, accuracy });
-                setLastGeoMsg(
-                    `watch lat:${latitude.toFixed(6)} lng:${longitude.toFixed(6)} acc:${Math.round(accuracy)}m`
-                );
-                setUserPos({ lng: longitude, lat: latitude, accuracy });
-            },
-            (err) => {
-                handleGeoError("watch", err);
-                alert(err.message || "Tracking error.");
-                stopTracking();
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-        );
-        watchIdRef.current = id;
-        setTracking(true);
+        let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng)
+        console.log(resp)
+
+
+        // if (!("geolocation" in navigator)) {
+        //     const msg = "Geolocation not supported";
+        //     setLastGeoMsg(msg);
+        //     alert(msg);
+        //     return;
+        // }
+        // if (!window.isSecureContext) {
+        //     const msg = "Location requires HTTPS (or localhost)";
+        //     setLastGeoMsg(msg);
+        //     alert(msg);
+        //     return;
+        // }
+        // if (watchIdRef.current != null) return;
+
+        // const id = navigator.geolocation.watchPosition(
+        //     (pos) => {
+        //         const { longitude, latitude, accuracy } = pos.coords;
+        //         console.log("[geo] watch update:", { longitude, latitude, accuracy });
+        //         setLastGeoMsg(
+        //             `watch lat:${latitude.toFixed(6)} lng:${longitude.toFixed(6)} acc:${Math.round(accuracy)}m`
+        //         );
+        //         setUserPos({ lng: longitude, lat: latitude, accuracy });
+        //     },
+        //     (err) => {
+        //         handleGeoError("watch", err);
+        //         alert(err.message || "Tracking error.");
+        //         stopTracking();
+        //     },
+        //     { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+        // );
+        // watchIdRef.current = id;
+        // setTracking(true);
     }
 
     function stopTracking() {
@@ -317,12 +294,13 @@ export default function NavigationMap() {
     }
     useEffect(() => {
         getBuildings();
+        locateOnceRobust();
     }, [])
 
     useEffect(() => {
         if (tracking && userPos) ensureCenter(userPos.lng, userPos.lat, 16);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tracking, userPos?.lng, userPos?.lat]);
+    }, [userPos?.lng, userPos?.lat]);
 
     useEffect(() => {
         return () => {
@@ -351,7 +329,7 @@ export default function NavigationMap() {
                         onChange={(e) => {
                             const id = e.target.value;
                             setSelectedDest(id);
-                            showRoute(id)
+                            showBuilding(id)
 
                             // if (id) flyToSelected(id);
                         }}
@@ -397,7 +375,7 @@ export default function NavigationMap() {
                         onChange={(e) => {
                             const id = e.target.value;
                             setSelectedDest(id);
-                            showRoute(id)
+                            showBuilding(id)
                             // if (id) flyToSelected(id);
                         }}
                     >

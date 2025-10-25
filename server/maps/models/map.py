@@ -6,7 +6,22 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from typing import List
 from sqlalchemy import ForeignKey
 
+# act as auxiliary table for user and group table
+# adjacency = db.Table(
+#     "adjacencyList",
+#     db.Column("Nodes_id", db.Integer, db.ForeignKey("nodes.id")),
+#     db.Column("Adjacent_id", db.Integer, db.ForeignKey("nodes.id")),
+# )
+
+adjacency = db.Table(
+        'adjacency',
+        db.metadata,
+        db.Column('from_id', db.Integer, ForeignKey('nodes.id'), primary_key=True),
+        db.Column('to_id', db.Integer, ForeignKey('nodes.id'), primary_key=True)
+    )
+
 class Nodes(db.Model):
+    __tablename__ = 'nodes' 
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(80), unique=True, nullable=False)
     lng = db.Column(db.Integer, nullable=False)
@@ -15,8 +30,16 @@ class Nodes(db.Model):
     ada = db.Column(db.Boolean, default =False)
     building_id: Mapped[int|None] = mapped_column(ForeignKey('buildings.id'),nullable=True)
     building: Mapped["Buildings"] = relationship(back_populates="nodes")
-    #adjacencyList: Mapped["Nodes"] = relationship(back_populates="nodes")
-
+    # adjecency_id:Mapped[int|None] = mapped_column(ForeignKey('nodes.id'),nullable=True)
+    # adjacencyList: Mapped["Nodes"] = relationship(back_populates="adjacencyList")
+    
+    adjacencyList = db.relationship(
+            'Nodes', secondary=adjacency,
+            primaryjoin=(adjacency.c.from_id == id),
+            secondaryjoin=(adjacency.c.to_id == id),
+            backref=db.backref('adjacency', lazy='dynamic'),
+            lazy='dynamic'
+        ) 
 
 """
     - The edges are bidirectional so the "efrom" and "eto" is just convention to keep it aligned with the client code. 
@@ -60,13 +83,20 @@ class Buildings(db.Model):
 #                         ada = False, 
 #                     )
 #                     db.session.add(node)
-        
-
+#     # db.session.commit()   
+#     # for i in range(len(geojson_data.features)):
             
 #             if geojson_data.features[i].geometry.type == "LineString":
 #                 # print(geojson_data.features[i])
 #                 cur = geojson_data.features[i].properties
 #                 if not db.session.query(db.exists().where(Edges.key == cur["key"])).scalar():
+#                     nodeFrom = Nodes.query.filter_by(key=cur["from"] ).first()
+#                     nodeTo = Nodes.query.filter_by(key=cur["to"] ).first()
+#                     nodeFrom.adjacencyList.append(nodeTo)
+#                     nodeTo.adjacencyList.append(nodeFrom)
+
+
+
 #                     edge = Edges(
 #                         key = cur["key"],
 #                         eFrom = cur["from"],

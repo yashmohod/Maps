@@ -52,60 +52,73 @@ def bfs(startid,endid):
                 visited.add(nextN.id)
 
 
+def getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2):
+  R = 6371 #// Radius of the earth in km
+  dLat = deg2rad(lat2-lat1) #  // deg2rad below
+  dLon = deg2rad(lon2-lon1) 
+  a = np.sin(dLat/2) * np.sin(dLat/2) + np.cos(deg2rad(lat1)) * np.cos(deg2rad(lat2)) * np.sin(dLon/2) * np.sin(dLon/2)
+  c = 2 * np.atan2(np.sqrt(a), np.sqrt(1-a))
+  d = R * c *1000 #// Distance in km
+  return d
 
-# use path to create assemble geojson features to render on map
-def pathToMapFeatures(path):
+def deg2rad(deg):
+  return deg * (np.pi/180)
 
 
-    res = {
-    "type": "FeatureCollection",
-    "features": []
-    }
+
+# # use path to create assemble geojson features to render on map
+# def pathToMapFeatures(path):
 
 
-    for i in range(len(path)-1):
+#     res = {
+#     "type": "FeatureCollection",
+#     "features": []
+#     }
 
-        # add nodes
-        # node = featureLookup.get(path[i])
-        # res["features"].append(node)
 
-        # add edges
-        edgeKey = path[i]+"__"+path[i+1]
-        edgeKey_alt = path[i+1]+"__"+path[i]
+#     for i in range(len(path)-1):
 
-        edge ={}
-        if edgeKey in featureLookup:
-            edge = featureLookup.get(edgeKey)
-        else:
-            edge = featureLookup.get(edgeKey_alt)
+#         # add nodes
+#         # node = featureLookup.get(path[i])
+#         # res["features"].append(node)
 
-        res["features"].append(edge)
+#         # add edges
+#         edgeKey = path[i]+"__"+path[i+1]
+#         edgeKey_alt = path[i+1]+"__"+path[i]
+
+#         edge ={}
+#         if edgeKey in featureLookup:
+#             edge = featureLookup.get(edgeKey)
+#         else:
+#             edge = featureLookup.get(edgeKey_alt)
+
+#         res["features"].append(edge)
     
-    # adding last node
-    node = featureLookup.get(path[-1])
-    res["features"].append(node)
+#     # adding last node
+#     node = featureLookup.get(path[-1])
+#     res["features"].append(node)
 
-    return res
+#     return res
 
         
-def buildingPosCaluator(points):
+# def buildingPosCaluator(points):
 
 
-    x = y = z = 0.0
+#     x = y = z = 0.0
     
-    for lat, lon in points:
-        lat_rad = math.radians(lat)
-        lon_rad = math.radians(lon)
+#     for lat, lon in points:
+#         lat_rad = math.radians(lat)
+#         lon_rad = math.radians(lon)
 
-        x += math.cos(lat_rad) * math.cos(lon_rad)
-        y += math.cos(lat_rad) * math.sin(lon_rad)
-        z += math.sin(lat_rad)
+#         x += math.cos(lat_rad) * math.cos(lon_rad)
+#         y += math.cos(lat_rad) * math.sin(lon_rad)
+#         z += math.sin(lat_rad)
 
-    x /= len(points)
-    y /= len(points)
-    z /= len(points)
+#     x /= len(points)
+#     y /= len(points)
+#     z /= len(points)
 
-    hyp = math.sqrt(x * x + y * y)
-    lat = math.degrees(math.atan2(z, hyp))
-    lon = math.degrees(math.atan2(y, x))
-    return (lat, lon)
+#     hyp = math.sqrt(x * x + y * y)
+#     lat = math.degrees(math.atan2(z, hyp))
+#     lon = math.degrees(math.atan2(y, x))
+#     return (lat, lon)

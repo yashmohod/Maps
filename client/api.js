@@ -106,13 +106,18 @@ export const setNavModeStatus = async (id, value, featureType, navModeId) => {
     const resp = await API.patch("/navmode/setstatus", { id, value, featureType, navModeId });
     return resp.status == 200
 }
+export const getAllMapFeaturesNavModeIds = async (navModeId) => {
+
+    const res = await API.get(`/navmode/allids?navModeId=` + navModeId);
+    return res;
+
+}
 export const getAllMapFeaturesNavMode = async (navModeId) => {
 
     const res = await API.get(`/navmode/all?navModeId=` + navModeId);
     return res;
 
 }
-
 
 
 

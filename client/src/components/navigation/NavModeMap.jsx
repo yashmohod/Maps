@@ -11,9 +11,9 @@ import {
     // getAllMapFeatureADA,
     // getRouteTo,
     // getBuildingPos,
-    // getAllMapFeaturePedestrian
+    getAllMapFeaturesNavMode
 } from "../../../api";
-export default function PedestrianMap({ path }) {
+export default function NavModeMap({ path, navMode }) {
 
     const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
     const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
@@ -57,17 +57,17 @@ export default function PedestrianMap({ path }) {
         []
     );
 
-    // async function getPedestrianFeatures() {
-    //     const resp = await getAllMapFeaturePedestrian();
+    async function getNavModeFeatures() {
+        const resp = await getAllMapFeaturesNavMode(navMode);
 
-    //     console.log(resp)
-    //     setMarkers(resp.data.nodes)
-    //     setEdgeIndex(resp.data.edges)
-    // }
+        console.log(resp)
+        setMarkers(resp.data.nodes)
+        setEdgeIndex(resp.data.edges)
+    }
 
     useEffect(() => {
         console.log("pedestrian!")
-        // getPedestrianFeatures()
+        getNavModeFeatures()
     }, [])
 
     return (

@@ -5,7 +5,7 @@ import os
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from typing import List
 from sqlalchemy import ForeignKey
-
+from ..utils.navigation import getDistanceFromLatLonInKm
 # act as auxiliary table for user and group table
 
 class Nodes(db.Model):
@@ -24,6 +24,7 @@ class Edges(db.Model):
     id = db.Column(db.String(255),primary_key=True, unique=True, nullable=False)
     eFrom = db.Column(db.String(80), nullable=False)
     eTo = db.Column(db.String(80), nullable=False)
+    distance = db.Column(db.Integer,nullable=True)
 
 class NavMode(db.Model):
     __tablename__ = 'navmode' 
@@ -77,6 +78,8 @@ with open(dir_path+'/../../Dev/phaseOne.geojson', 'r') as file:
                     )
                     db.session.add(node) 
                     # curNavMode.nodes.add(node)
+                    db.session.add(NavModeAssosication(navMode=1, feature=geojson_data.features[i].id, typeOf="Node"))
+                    db.session.commit()
 
             if geojson_data.features[i].geometry.type == "LineString":
                 # print(geojson_data.features[i])
@@ -91,7 +94,13 @@ with open(dir_path+'/../../Dev/phaseOne.geojson', 'r') as file:
     
                     db.session.add(edge)
 
+                    db.session.add(NavModeAssosication(navMode=1, feature=cur["key"], typeOf="Edge"))
                     # curNavMode.edges.add(edge)
+
+for i in Edges.query.all():
+    n1 = Nodes.query.get(i.eFrom)
+    n2 = Nodes.query.get(i.eTo)
+    i.distance = getDistanceFromLatLonInKm(n1.lat,n1.lng,n2.lat,n2.lng) 
+
+
 db.session.commit()
-
-

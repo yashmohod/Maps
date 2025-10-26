@@ -125,6 +125,26 @@ def MapFeatureGetAllNavMode():
     for assosication in NavModeAssosication.query.filter(NavModeAssosication.navMode ==navModeId).all():
 
         if assosication.typeOf == "Node":
+            curNode = Nodes.query.get(assosication.feature)
+            nodes.append({"id":curNode.id,"lng":curNode.lng,"lat":curNode.lat})
+        if assosication.typeOf == "Edge":
+            curEdge = Edges.query.get(assosication.feature)
+            edges.append({"key":curEdge.id,"from":curEdge.eFrom,"to":curEdge.eTo})
+
+    return jsonify({"edges": edges,"nodes":nodes}), 200
+
+
+@navMode_bp.route("/allids", methods=["GET"])
+def MapFeatureGetAllNavModeIds():
+    navModeId = request.args.get("navModeId")
+
+    
+    edges = []
+    nodes =[]
+
+    for assosication in NavModeAssosication.query.filter(NavModeAssosication.navMode ==navModeId).all():
+
+        if assosication.typeOf == "Node":
             nodes.append(assosication.feature)
         if assosication.typeOf == "Edge":
             edges.append(assosication.feature)

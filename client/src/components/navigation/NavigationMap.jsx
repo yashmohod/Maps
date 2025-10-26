@@ -9,12 +9,13 @@ import {
     getAllBuildings,
     // getAllBuildingNodes,
     // getAllMapFeatureADA,
+    getAllNavModes,
     getRouteTo,
     getBuildingPos
 } from "../../../api";
 // import { ADAMap } from "./ADAMap"
 // import { VehicularMap } from "./VehicularMap"
-import PedestrianMap from "./PedestrianMap";
+import NavModeMap from "./NavModeMap";
 
 
 export default function NavigationMap() {
@@ -29,17 +30,13 @@ export default function NavigationMap() {
     const [userPos, setUserPos] = useState(null); // {lng,lat,accuracy}
     const [tracking, setTracking] = useState(false);
     const [mapReady, setMapReady] = useState(false);
-    const [curNavMode, setNavMode] = useState("pedestrian")
+    const [curNavMode, setCurNavMode] = useState("pedestrian")
     const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
     const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
     const mapRef = useRef(null);
     const watchIdRef = useRef(null);
-
-    const navigationModes = [
-        { "mode": "pedestrian", "name": "Pedestrian" },
-        { "mode": "ada", "name": "Accessible" },
-        { "mode": "vehicular", "name": "Vehicular Traffic" }
-    ]
+    const [path, setPath] = useState(new Set())
+    const [navModes, setNavModes] = useState([])
 
 
     // Accuracy ring
@@ -206,12 +203,21 @@ export default function NavigationMap() {
         else toast.error("Buildings did not load!");
     }
 
+    async function getNavModes() {
+        const resp = await getAllNavModes();
+        let curNavModes = resp.data.NavModes
+        if (curNavModes.length > 0) {
+            setCurNavMode(curNavModes[0].id);
+        }
 
+        setNavModes(curNavModes)
+    }
 
 
     useEffect(() => {
         getBuildings();
         locateOnceRobust();
+        getNavModes();
     }, [])
 
     useEffect(() => {
@@ -255,7 +261,7 @@ export default function NavigationMap() {
                 </div>
                 <div className="bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
                     <label htmlFor="dest-d" className="text-sm font-medium">
-                        Nagivigation Mode
+                        Navigation Mode
                     </label>
                     <select
                         id="dest-d"
@@ -263,12 +269,12 @@ export default function NavigationMap() {
                         value={curNavMode}
                         defaultValue={"pedestrian"}
                         onChange={(e) => {
-                            setNavMode(e.target.value)
+                            setCurNavMode(e.target.value)
                             // if (id) flyToSelected(id);
                         }}
                     >
-                        {navigationModes.map((d) => (
-                            <option key={d.mode} value={d.mode}>
+                        {navModes.map((d) => (
+                            <option key={d.id} value={d.id}>
                                 {d.name}
                             </option>
                         ))}
@@ -329,9 +335,7 @@ export default function NavigationMap() {
                 mapStyle="https://api.maptiler.com/maps/base-v4/style.json?key=ezFqZj4n29WctcwDznlR"
                 onLoad={() => { setMapReady(true); }}
             >
-                {curNavMode == "pedestrian" ?
-                    <PedestrianMap />
-                    : null}
+                <NavModeMap path={path} navMode={curNavMode} />
 
                 {/* {markers.map((m) => {
 

@@ -5,7 +5,7 @@ const API = axios.create({
     timeout: 30000,
 });
 
-
+//// editor functions
 export const getAllMapFeature = async () => {
 
     const res = await API.get(`/map/all`);
@@ -13,78 +13,20 @@ export const getAllMapFeature = async () => {
 
 }
 
-export const getAllMapFeatureADA = async (editor) => {
-
-    const res = await API.get(`/map/adaall?editor=` + editor);
-    return res;
-
-}
-
 export const addNode = async (id, lng, lat) => {
-
-    let feature = {
-        "type": "Feature",
-        "id": id,
-        "properties": {
-            "id": id
-        },
-        "geometry": {
-            "type": "Point",
-            "coordinates": [
-                lng,
-                lat
-            ]
-        }
-    }
-
-    const resp = await API.post("/map/", { feature });
+    let type = "node"
+    const resp = await API.post("/map/", { id, lng, lat, type });
     return resp.status == 201
 }
 
 export const editNode = async (id, lng, lat) => {
-
-    let feature = {
-        "type": "Feature",
-        "id": id,
-        "properties": {
-            "id": id
-        },
-        "geometry": {
-            "type": "Point",
-            "coordinates": [
-                lng,
-                lat
-            ]
-        }
-    }
-
-    const resp = await API.put("/map/", { feature });
+    const resp = await API.put("/map/", { id, lng, lat });
     return resp.status == 201
 }
 
-export const setADAStatus = async (key, value, featureType) => {
-
-    const resp = await API.patch("/map/adastatus", { key, value, featureType });
-    return resp.status == 200
-}
-
-
-export const addEdge = async (key, to, from, cords) => {
-
-    let feature = {
-        "type": "Feature",
-        "properties": {
-            "key": key,
-            "from": from,
-            "to": to
-        },
-        "geometry": {
-            "type": "LineString",
-            "coordinates": cords
-        }
-    }
-
-    const resp = await API.post("/map/", { feature });
+export const addEdge = async (key, to, from) => {
+    let type = "edge"
+    const resp = await API.post("/map/", { key, to, from, type });
     return resp.status == 201
 }
 
@@ -94,6 +36,7 @@ export const deleteFeature = async (featureKey, featureType) => {
 }
 
 
+//// building functions
 
 export const addBuilding = async (name) => {
     const resp = await API.post("/building/", { name });
@@ -131,13 +74,51 @@ export const detachNodeFromBuilding = async (buildingId, nodeId) => {
     return resp.status == 200
 }
 
-// buildingpos
-
 export const getBuildingPos = async (buildingId) => {
     const resp = await API.get("/navigation/buildingpos?buildingid=" + buildingId)
     return resp
 
 }
+
+//// Navigation Mode functions
+export const addNavMode = async (name) => {
+    const resp = await API.post("/navmode/", { name });
+    return resp
+}
+
+export const editNavMode = async (id, name) => {
+    const resp = await API.put("/navmode/", { id, name });
+    return resp
+}
+
+export const deleteNavMode = async (id) => {
+    const resp = await API.delete("/navmode/", { data: { id: id } });
+    return resp
+}
+
+export const getAllNavModes = async () => {
+    const resp = await API.get("/navmode/")
+    return resp
+}
+
+export const setNavModeStatus = async (id, value, featureType, navModeId) => {
+
+    const resp = await API.patch("/navmode/setstatus", { id, value, featureType, navModeId });
+    return resp.status == 200
+}
+export const getAllMapFeaturesNavMode = async (navModeId) => {
+
+    const res = await API.get(`/navmode/all?navModeId=` + navModeId);
+    return res;
+
+}
+
+
+
+
+
+//// vehicular functions
+
 
 export const getRouteTo = async (buildingId, lat, lng) => {
     console.log("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng)

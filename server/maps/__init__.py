@@ -43,4 +43,6 @@ with app.app_context():
 
     from maps.routes.navigation import navigation_bp
     app.register_blueprint(navigation_bp, url_prefix="/navigation")
-
+    
+    from maps.routes.navMode import navMode_bp
+    app.register_blueprint(navMode_bp, url_prefix="/navmode")

@@ -6,6 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Map as ReactMap, Marker, Source, Layer } from "@vis.gl/react-maplibre";
 import Buildings from "./Buildings";
+import NavModes from "./NavModes";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   getAllMapFeature,
@@ -13,12 +14,13 @@ import {
   addEdge,
   editNode,
   deleteFeature,
-  setADAStatus,
+  setNavModeStatus,
   getAllBuildings,
   getAllBuildingNodes,
   attachNodeToBuilding,
   detachNodeFromBuilding,
-  getAllMapFeatureADA
+  getAllMapFeaturesNavMode,
+  getAllNavModes
 } from "../../../api";
 import Dropdown from "react-bootstrap/Dropdown";
 import DropdownButton from "react-bootstrap/DropdownButton";
@@ -33,9 +35,10 @@ export default function MapEditor() {
   const [selectedId, setSelectedId] = useState(null);
 
   // ADA — now Sets
-  const [curADANodes, setCurADANodes] = useState(new Set());     // Set<string>
-  const [curADAEdges, setCurADAEdges] = useState(new Set());     // Set<string>
-  const [showOnlyADA, setShowOnlyADA] = useState(false);
+  const [curNavModeNodes, setCurNavModeNodes] = useState(new Set());     // Set<string>
+  const [curNavModeEdges, setCurNavModeEdges] = useState(new Set());     // Set<string>
+  const [showOnlyNavMode, setShowOnlyNavMode] = useState(false);
+  const [curNavMode, setCurNavMode] = useState("pedestrian")
 
   // Buildings
   const [buildings, setBuildings] = useState([]);
@@ -43,11 +46,15 @@ export default function MapEditor() {
   const [curBuildingNodes, setCurBuildingNodes] = useState(new Set()); // Set<string>
   const [curBuildingOrder, setCurBuildingOrder] = useState([]);        // string[]
   const [showBuildingModal, setShowBuildingModal] = useState(false);
-
+  const [showNavModeModal, setShowNavModeModal] = useState(false);
+  const [navModes, setNavModes] = useState([])
   // UI
   const [mode, setMode] = useState("select");
   const [showNodes, setShowNodes] = useState(true);
-
+  const curNavModeRef = useRef(curNavMode);
+  useEffect(() => {
+    curNavModeRef.current = curNavMode;
+  }, [curNavMode]);
   const mapRef = useRef(null);
   const modeRef = useRef(mode);
   const selectedRef = useRef(selectedId);
@@ -57,11 +64,10 @@ export default function MapEditor() {
   // Helpers
   const edgeKey = (a, b) => [a, b].sort().join("__");
   const findMarker = (id) => markers.find((m) => m.id === id) || null;
-  const isNodeSelectedADA = (id) => curADANodes.has(id);
-  const isEdgeSelectedADA = (key) => curADAEdges.has(key);
+  const isNodeSelectedNavMode = (id) => curNavModeNodes.has(id);
+  const isEdgeSelectedNavMode = (key) => curNavModeEdges.has(key);
   const getEdgeByKey = (key) => edgeIndex.find((e) => e.key === key) || null;
-  const hasAdjSelectedEdge = (nodeId) =>
-    edgeIndex.some((e) => (curADAEdges.has(e.key) && (e.from === nodeId || e.to === nodeId)));
+  const hasAdjSelectedEdge = (nodeId) => edgeIndex.some((e) => (curNavModeEdges.has(e.key) && (e.from === nodeId || e.to === nodeId)));
 
   // Edges FC (ADA flag + optional filter)
   const edgesGeoJSON = useMemo(() => {
@@ -73,16 +79,16 @@ export default function MapEditor() {
           const a = coord.get(from);
           const b = coord.get(to);
           if (!a || !b) return null;
-          if (showOnlyADA && mode === "ada" && !isEdgeSelectedADA(key)) return null;
+          if (showOnlyNavMode && mode === "navMode" && !isEdgeSelectedNavMode(key)) return null;
           return {
             type: "Feature",
-            properties: { key, from, to, ada: isEdgeSelectedADA(key) && mode === "ada" },
+            properties: { key, from, to, ada: isEdgeSelectedNavMode(key) && mode === "navMode" },
             geometry: { type: "LineString", coordinates: [a, b] },
           };
         })
         .filter(Boolean),
     };
-  }, [markers, edgeIndex, curADAEdges, mode, showOnlyADA]);
+  }, [markers, edgeIndex, curNavModeEdges, mode, showOnlyNavMode, curNavMode]);
 
   // Line style
   const lineLayer = useMemo(
@@ -117,7 +123,7 @@ export default function MapEditor() {
     if (!ok) return toast.error("Feature could not be deleted.");
     setMarkers((prev) => prev.filter((m) => m.id !== id));
     setEdgeIndex((list) => list.filter((e) => e.from !== id && e.to !== id));
-    setCurADANodes((prev) => {
+    setCurNavModeNodes((prev) => {
       if (!prev.has(id)) return prev;
       const next = new Set(prev); next.delete(id); return next;
     });
@@ -125,7 +131,7 @@ export default function MapEditor() {
       if (!prev.has(id)) return prev;
       const next = new Set(prev); next.delete(id); return next;
     });
-    setCurADAEdges((prev) => {
+    setCurNavModeEdges((prev) => {
       // drop any ADA edges touching this node
       const remove = new Set(edgeIndex.filter((e) => (e.from === id || e.to === id)).map((e) => e.key));
       if (remove.size === 0) return prev;
@@ -147,33 +153,34 @@ export default function MapEditor() {
   }
 
   // ADA ops (now using Sets)
-  function setADANode(id, status) {
+  function setNavModeNode(id, status, mode) {
     // block removal when any ADA edge touches this node
     if (!status && hasAdjSelectedEdge(id)) {
       toast.error("Can't deselect a node adjacent to a selected ADA edge.");
       return;
     }
-    setCurADANodes((prev) => {
+    setCurNavModeNodes((prev) => {
       const next = new Set(prev);
       if (status) next.add(id); else next.delete(id);
       // optimistic server sync; keep UI responsive
-      setADAStatus(id, status, "Node");
+      setNavModeStatus(id, status, "Node", mode);
       return next;
     });
   }
 
-  function setADAEdge(key) {
+  function setNavModeEdge(key) {
+    const mode = curNavModeRef.current;
     const edge = getEdgeByKey(key);
     if (!edge) return;
     const { from, to } = edge;
 
-    setCurADAEdges((prev) => {
+    setCurNavModeEdges((prev) => {
       const next = new Set(prev);
       const wasSelected = next.has(key);
 
       if (wasSelected) {
         next.delete(key);
-        setADAStatus(key, false, "Edge");
+        setNavModeStatus(key, false, "Edge", mode);
 
         // after removal, drop endpoints if they no longer touch any selected ADA edge
         const stillAdjFrom = [...next].some((k) => {
@@ -182,13 +189,13 @@ export default function MapEditor() {
         const stillAdjTo = [...next].some((k) => {
           const e = getEdgeByKey(k); return e && (e.from === to || e.to === to);
         });
-        if (!stillAdjFrom) setADANode(from, false);
-        if (!stillAdjTo) setADANode(to, false);
+        if (!stillAdjFrom) setNavModeNode(from, false, mode);
+        if (!stillAdjTo) setNavModeNode(to, false, mode);
       } else {
         next.add(key);
-        setADAStatus(key, true, "Edge");
-        if (!isNodeSelectedADA(from)) setADANode(from, true);
-        if (!isNodeSelectedADA(to)) setADANode(to, true);
+        setNavModeStatus(key, true, "Edge", mode);
+        if (!isNodeSelectedNavMode(from)) setNavModeNode(from, true, mode);
+        if (!isNodeSelectedNavMode(to)) setNavModeNode(to, true, mode);
       }
       return next;
     });
@@ -252,7 +259,7 @@ export default function MapEditor() {
     e.stopPropagation();
     if (modeRef.current === "delete") return void deleteNode(id);
     if (modeRef.current === "buildingGroup") return void addToBuildingGroup(id);
-    if (modeRef.current === "ada") return void setADANode(id, !isNodeSelectedADA(id));
+    if (modeRef.current === "navMode") return void setNavModeNode(id, !isNodeSelectedNavMode(id), curNavModeRef.current);
     if (modeRef.current === "select") {
       const cur = selectedRef.current;
       if (cur === null) return setSelectedId(id);
@@ -273,7 +280,7 @@ export default function MapEditor() {
     const f = e.features?.[0];
     const key = f?.properties?.key;
     if (!key) return;
-    if (modeRef.current === "ada") return void setADAEdge(key);
+    if (modeRef.current === "navMode") return void setNavModeEdge(key);
     if (modeRef.current === "delete") return void deleteEdgeByKey(key);
   }
 
@@ -297,45 +304,10 @@ export default function MapEditor() {
     map.on("mouseleave", "graph-edges", handleEdgeLeave);
   }
 
-  // Bootstrap
   async function getAllFeature() {
     const resp = await getAllMapFeature();
-    console.log(resp)
     setMarkers(resp.data.nodes)
     setEdgeIndex(resp.data.edges)
-    // if (markers.length > 0) return;
-    // if (fc?.type !== "FeatureCollection" || !Array.isArray(fc.features)) {
-    //   alert("Invalid GeoJSON FeatureCollection.");
-    //   return;
-    // }
-    // const nextMarkers = [];
-    // const nextEdges = [];
-    // for (const f of fc.features) {
-    //   if (f?.geometry?.type === "Point") {
-    //     const id = f.id ?? f.properties?.id;
-    //     const [lng, lat] = f.geometry.coordinates || [];
-    //     if (id && Number.isFinite(lng) && Number.isFinite(lat)) nextMarkers.push({ id, lng, lat });
-    //   } else if (f?.geometry?.type === "LineString") {
-    //     const from = f.properties?.from;
-    //     const to = f.properties?.to;
-    //     if (from && to) nextEdges.push({ key: edgeKey(from, to), from, to });
-    //   }
-    // }
-    // const ids = new Set(nextMarkers.map((m) => m.id));
-    // if (ids.size !== nextMarkers.length) {
-    //   alert("Duplicate node ids in import.");
-    //   return;
-    // }
-    // setMarkers(nextMarkers);
-    // const uniq = [];
-    // const seen = new Set();
-    // for (const e of nextEdges) {
-    //   if (seen.has(e.key)) continue;
-    //   seen.add(e.key);
-    //   uniq.push(e);
-    // }
-    // setEdgeIndex(uniq);
-    // setSelectedId(null);
   }
 
   async function getBuildings() {
@@ -344,9 +316,21 @@ export default function MapEditor() {
     else toast.error("Buildings did not load!");
   }
 
+  async function getNavModes() {
+    const resp = await getAllNavModes();
+    let curNavModes = resp.data.NavModes
+    if (curNavModes.length > 0) {
+      setCurNavMode(curNavModes[0].id);
+      getNavModeFeatures(curNavModes[0].id)
+    }
+
+    setNavModes(curNavModes)
+  }
+
   useEffect(() => {
     getAllFeature();
     getBuildings();
+    getNavModes();
     return () => {
       const map = mapRef.current?.getMap?.();
       if (!map) return;
@@ -357,8 +341,8 @@ export default function MapEditor() {
   }, []);
 
   useEffect(() => {
-    if (mode !== "ada" && showOnlyADA) setShowOnlyADA(false);
-  }, [mode, showOnlyADA]);
+    if (mode !== "navMode" && showOnlyNavMode) setShowOnlyNavMode();
+  }, [mode, showOnlyNavMode]);
 
   // Export / import (unchanged)
   function exportGeoJSON() {
@@ -436,12 +420,11 @@ export default function MapEditor() {
     map.flyTo({ center: [m.lng, m.lat], zoom: 18, essential: true });
   }
 
-  async function getADAFeatures() {
-    let resp = await getAllMapFeatureADA(editor = true)
+  async function getNavModeFeatures(navMode) {
+    let resp = await getAllMapFeaturesNavMode(navMode)
     console.log(resp)
-
-    setCurADAEdges(new Set(resp.data.edges));
-    setCurADANodes(new Set(resp.data.nodes));
+    setCurNavModeEdges(new Set(resp.data.edges));
+    setCurNavModeNodes(new Set(resp.data.nodes));
   }
 
   return (
@@ -452,7 +435,7 @@ export default function MapEditor() {
       <div className="absolute z-20 top-3 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
         <span className="text-sm font-medium">Mode:</span>
         <button className={`px-2 py-1 rounded ${mode === "select" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("select")}>Draw</button>
-        <button className={`px-2 py-1 rounded ${mode === "ada" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => { setMode("ada"); getADAFeatures(); }}>ADA Select</button>
+        <button className={`px-2 py-1 rounded ${mode === "navMode" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => { setMode("navMode"); }}>Map Mode Select</button>
         <button className={`px-2 py-1 rounded ${mode === "buildingGroup" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("buildingGroup")}>Building Select</button>
         <button className={`px-2 py-1 rounded ${mode === "edit" ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("edit")}>Edit</button>
         <button className={`px-2 py-1 rounded ${mode === "delete" ? "bg-red-600 text-white" : "bg-gray-200"}`} onClick={() => setMode("delete")}>Delete</button>
@@ -482,7 +465,30 @@ export default function MapEditor() {
           </>
         )}
       </div>
-
+      {/* Map Mode selector (left, under toolbar) */}
+      {mode === "navMode" && (
+        <div className="absolute z-20 top-16 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-3">
+          <span className="text-sm font-medium">Navigation Mode</span>
+          <DropdownButton
+            id="building-selector"
+            title={
+              curNavMode
+                ? navModes.find((b) => b.id === curNavMode)?.name || curNavMode
+                : "Select Nav Mode"
+            }
+            variant="light"
+          >
+            {navModes.map((b) => (
+              <Dropdown.Item key={b.id} onClick={() => { setCurNavMode(b.id); getNavModeFeatures(b.id) }}>
+                {b.name}
+              </Dropdown.Item>
+            ))}
+          </DropdownButton>
+          <button className="px-2 py-1 rounded bg-gray-200" onClick={() => { setShowNavModeModal(true) }}>
+            Manage Nav Modes
+          </button>
+        </div>
+      )}
       {/* Building selector (left, under toolbar) */}
       {mode === "buildingGroup" && (
         <div className="absolute z-20 top-16 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-3">
@@ -618,12 +624,12 @@ export default function MapEditor() {
 
         {markers.map((m) => {
           const isBuildingSel = mode === "buildingGroup" && curBuildingNodes.has(m.id);
-          const isADASel = mode === "ada" && isNodeSelectedADA(m.id);
+          const isNavModeSel = mode === "navMode" && isNodeSelectedNavMode(m.id);
           const isDrawSel = mode === "select" && m.id === selectedId;
 
-          if (mode === "ada" && showOnlyADA && !isADASel) return null;
+          if (mode === "navMode" && showOnlyNavMode && !isNavModeSel) return null;
 
-          const colorClass = isBuildingSel ? "bg-amber-500" : (isADASel || isDrawSel) ? "bg-red-600" : "bg-blue-600";
+          const colorClass = isBuildingSel ? "bg-amber-500" : (isNavModeSel || isDrawSel) ? "bg-red-600" : "bg-blue-600";
 
           return (
             <Marker
@@ -646,10 +652,16 @@ export default function MapEditor() {
           );
         })}
       </ReactMap>
-
+      {/* Building manager*/}
       <Modal show={showBuildingModal} onHide={() => setShowBuildingModal(false)} backdrop="static" keyboard={false}>
         <Modal.Header closeButton><Modal.Title>Buildings</Modal.Title></Modal.Header>
         <Modal.Body><Buildings buildings={buildings} getBuildings={getBuildings} /></Modal.Body>
+        <Modal.Footer />
+      </Modal>
+      {/* Navigation Mode manager */}
+      <Modal show={showNavModeModal} onHide={() => setShowNavModeModal(false)} backdrop="static" keyboard={false}>
+        <Modal.Header closeButton><Modal.Title>Navigation Modes</Modal.Title></Modal.Header>
+        <Modal.Body><NavModes navModes={navModes} getNavModes={getNavModes} /></Modal.Body>
         <Modal.Footer />
       </Modal>
     </div>

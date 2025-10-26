@@ -103,7 +103,7 @@ def BuildingNodeAdd():
     data = json.loads(request.data)
 
     curBuilding = Buildings.query.get(data["buildingId"])
-    curNode = Nodes.query.filter_by(key =data["nodeId"]).first()
+    curNode = Nodes.query.get(data["nodeId"])
 
     if curNode not in curBuilding.nodes:
         curBuilding.nodes.append(curNode)
@@ -124,7 +124,7 @@ def BuildingNodeRemove():
     data = json.loads(request.data)
 
     curBuilding = Buildings.query.get(data["buildingId"])
-    curNode = Nodes.query.filter_by(key =data["nodeId"]).first()
+    curNode = Nodes.query.get(data["nodeId"])
 
     if curNode in curBuilding.nodes:
         curBuilding.nodes.remove(curNode)

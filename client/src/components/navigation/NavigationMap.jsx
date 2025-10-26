@@ -5,13 +5,18 @@ import { Map as ReactMap, Source, Layer, Marker } from "@vis.gl/react-maplibre";
 import toast, { Toaster } from "react-hot-toast";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
-    getAllMapFeature,
+    // getAllMapFeature,
     getAllBuildings,
-    getAllBuildingNodes,
-    getAllMapFeatureADA,
+    // getAllBuildingNodes,
+    // getAllMapFeatureADA,
     getRouteTo,
     getBuildingPos
 } from "../../../api";
+// import { ADAMap } from "./ADAMap"
+// import { VehicularMap } from "./VehicularMap"
+import PedestrianMap from "./PedestrianMap";
+
+
 export default function NavigationMap() {
     const [viewState, setViewState] = useState({
         longitude: -76.494131,
@@ -20,93 +25,22 @@ export default function NavigationMap() {
     });
 
     const [selectedDest, setSelectedDest] = useState("");
-    const [showADAEntrances, setShowADAEntrances] = useState(false);
-    const [showADARoutes, setShowADARoutes] = useState(false);
     const [buildings, setBuildings] = useState([]);
     const [userPos, setUserPos] = useState(null); // {lng,lat,accuracy}
     const [tracking, setTracking] = useState(false);
     const [mapReady, setMapReady] = useState(false);
-    const [lastGeoMsg, setLastGeoMsg] = useState(""); // debug line
-
+    const [curNavMode, setNavMode] = useState("pedestrian")
     const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
     const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
     const mapRef = useRef(null);
     const watchIdRef = useRef(null);
 
+    const navigationModes = [
+        { "mode": "pedestrian", "name": "Pedestrian" },
+        { "mode": "ada", "name": "Accessible" },
+        { "mode": "vehicular", "name": "Vehicular Traffic" }
+    ]
 
-    const edgesGeoJSON = useMemo(() => {
-        const coord = new Map(markers.map((m) => [m.id, [m.lng, m.lat]]));
-        return {
-            type: "FeatureCollection",
-            features: edgeIndex
-                .map(({ key, from, to }) => {
-                    const a = coord.get(from);
-                    const b = coord.get(to);
-                    if (!a || !b) return null;
-                    return {
-                        type: "Feature",
-                        properties: { key, from, to },
-                        geometry: { type: "LineString", coordinates: [a, b] },
-                    };
-                })
-                .filter(Boolean),
-        };
-    }, [markers, edgeIndex]);
-
-    const lineLayer = useMemo(
-        () => ({
-            id: "graph-edges",
-            type: "line",
-            source: "edges",
-            layout: { "line-cap": "round", "line-join": "round" },
-            paint: {
-                "line-width": 5,
-                "line-color": "#16a34a",
-                "line-opacity": 0.95,
-            },
-        }),
-        []
-    );
-
-
-
-    // Demo ADA data
-    const ADA_ENTRANCES_FC = useMemo(
-        () => ({}),
-        []
-    );
-
-    const ADA_ROUTES_FC = useMemo(
-        () => ({}),
-        []
-    );
-
-    // Map layers
-    const adaEntranceLayer = useMemo(
-        () => ({
-            id: "ada-entrances",
-            type: "circle",
-            source: "ada-entrances",
-            paint: {
-                "circle-radius": 6,
-                "circle-color": "#16a34a",
-                "circle-stroke-width": 2,
-                "circle-stroke-color": "#ffffff",
-            },
-        }),
-        []
-    );
-
-    const adaRouteLayer = useMemo(
-        () => ({
-            id: "ada-routes",
-            type: "line",
-            source: "ada-routes",
-            layout: { "line-cap": "round", "line-join": "round" },
-            paint: { "line-width": 5, "line-color": "#16a34a", "line-opacity": 0.95 },
-        }),
-        []
-    );
 
     // Accuracy ring
     const accuracyGeoJSON = useMemo(() => {
@@ -165,30 +99,7 @@ export default function NavigationMap() {
         }
     }
 
-    function handleGeoSuccess(pos) {
-        const { longitude, latitude, accuracy } = pos.coords;
-        setUserPos({ lng: longitude, lat: latitude, accuracy });
-        ensureCenter(longitude, latitude, 16);
-    }
 
-    function handleGeoError(where, err) {
-        let msg;
-        switch (err.code) {
-            case 1:
-                msg = "Permission denied";
-                break;
-            case 2:
-                msg = "Position unavailable";
-                break;
-            case 3:
-                msg = "Timeout";
-                break;
-            default:
-                msg = err?.message || "Unknown geolocation error";
-        }
-        console.log(`[geo] ${where} error:`, err, "=>", msg);
-        setLastGeoMsg(`${where}:${msg}`);
-    }
 
     async function locateOnceRobust() {
         console.log("here")
@@ -209,41 +120,6 @@ export default function NavigationMap() {
             return;
         }
 
-
-        // const attemptC = () =>
-        //     new Promise((resolve, reject) => {
-        //         let cleared = false;
-        //         const id = navigator.geolocation.watchPosition(
-        //             (pos) => {
-        //                 if (cleared) return;
-        //                 cleared = true;
-        //                 navigator.geolocation.clearWatch(id);
-        //                 resolve(pos);
-        //             },
-        //             (err) => {
-        //                 if (cleared) return;
-        //                 cleared = true;
-        //                 navigator.geolocation.clearWatch(id);
-        //                 reject(err);
-        //             },
-        //             { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-        //         );
-        //         setTimeout(() => {
-        //             if (!cleared) {
-        //                 cleared = true;
-        //                 navigator.geolocation.clearWatch(id);
-        //                 reject({ code: 3, message: "Watch timeout" });
-        //             }
-        //         }, 17000);
-        //     });
-
-        // const pos = await attemptC();
-
-
-        // const { longitude, latitude, accuracy } = pos.coords;
-        // // console.log(longitude, latitude, accuracy)
-        // setUserPos({ lng: longitude, lat: latitude, accuracy });
-        // ensureCenter(longitude, latitude, 16);
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { longitude, latitude, accuracy } = position.coords;
@@ -264,7 +140,6 @@ export default function NavigationMap() {
     async function showBuilding(id) {
 
         let resp = await getBuildingPos(id)
-        console.log(resp)
         let lat = resp.data.lat
         let lng = resp.data.lng
         ensureCenter(lng, lat, 17);
@@ -272,7 +147,6 @@ export default function NavigationMap() {
 
     async function startTracking() {
 
-        console.log(selectedDest === "")
 
         if (selectedDest === "") {
             toast.error("Please select a destination before starting route.")
@@ -281,8 +155,6 @@ export default function NavigationMap() {
 
         // let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng)
         let resp = await getRouteTo(selectedDest, 42.424500, -76.491837)
-        console.log(resp)
-        console.log(resp.data)
         setMarkers(resp.data.nodes)
         setEdgeIndex(resp.data.edges)
 
@@ -333,6 +205,10 @@ export default function NavigationMap() {
         if (resp?.status === 200) setBuildings(resp.data.buildings || []);
         else toast.error("Buildings did not load!");
     }
+
+
+
+
     useEffect(() => {
         getBuildings();
         locateOnceRobust();
@@ -352,57 +228,6 @@ export default function NavigationMap() {
     return (
         <div className="w-full h-screen relative">
             <Toaster position="top-right" reverseOrder />
-            {/* On-screen debug for geolocation */}
-            {/* <div className="absolute z-30 top-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-xs">
-                {lastGeoMsg || "geo: —"}
-            </div> */}
-
-            {/* Mobile bottom sheet (phone-first) */}
-            <div className="md:hidden absolute z-20 left-0 right-0 bottom-0 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0)+12px)] bg-white/95 backdrop-blur rounded-t-2xl shadow flex flex-col gap-3">
-                <div>
-                    <label htmlFor="dest-m" className="block text-xs font-medium text-gray-700 mb-1">
-                        Destination
-                    </label>
-                    <select
-                        id="dest-m"
-                        className="w-full text-base rounded-lg border px-3 py-3 bg-white"
-                        value={selectedDest}
-                        onChange={(e) => {
-                            const id = e.target.value;
-                            setSelectedDest(id);
-                            showBuilding(id)
-
-                            // if (id) flyToSelected(id);
-                        }}
-                    >
-                        <option value="">Select…</option>
-                        {buildings.map((d) => (
-                            <option key={d.id} value={d.id}>
-                                {d.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <button
-                        aria-pressed={showADAEntrances}
-                        className={`px-3 py-3 rounded-xl text-base font-medium ${showADAEntrances ? "bg-green-600 text-white" : "bg-gray-200 text-gray-900"
-                            }`}
-                        onClick={() => setShowADAEntrances((v) => !v)}
-                    >
-                        {showADAEntrances ? "Hide ADA Entrances" : "Show ADA Entrances"}
-                    </button>
-                    <button
-                        aria-pressed={showADARoutes}
-                        className={`px-3 py-3 rounded-xl text-base font-medium ${showADARoutes ? "bg-green-600 text-white" : "bg-gray-200 text-gray-900"
-                            }`}
-                        onClick={() => setShowADARoutes((v) => !v)}
-                    >
-                        {showADARoutes ? "Hide ADA Routes" : "Show ADA Routes"}
-                    </button>
-                </div>
-            </div>
-
             {/* Desktop toolbar */}
             <div className="hidden md:flex absolute z-20 top-3 left-3 right-3 items-center justify-between">
                 <div className="bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
@@ -429,7 +254,26 @@ export default function NavigationMap() {
                     </select>
                 </div>
                 <div className="bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
-                    <button
+                    <label htmlFor="dest-d" className="text-sm font-medium">
+                        Nagivigation Mode
+                    </label>
+                    <select
+                        id="dest-d"
+                        className="text-sm rounded border px-2 py-1 bg-white w-64"
+                        value={curNavMode}
+                        defaultValue={"pedestrian"}
+                        onChange={(e) => {
+                            setNavMode(e.target.value)
+                            // if (id) flyToSelected(id);
+                        }}
+                    >
+                        {navigationModes.map((d) => (
+                            <option key={d.mode} value={d.mode}>
+                                {d.name}
+                            </option>
+                        ))}
+                    </select>
+                    {/* <button
                         aria-pressed={showADAEntrances}
                         className={`px-3 py-2 rounded-lg text-sm font-medium ${showADAEntrances ? "bg-green-600 text-white" : "bg-gray-200 text-gray-900"
                             }`}
@@ -446,18 +290,17 @@ export default function NavigationMap() {
                         title="Toggle ADA routes"
                     >
                         {showADARoutes ? "Hide ADA Routes" : "Show ADA Routes"}
-                    </button>
+                    </button> */}
                 </div>
             </div>
 
-            {/* FABs (bumped up on mobile to avoid dropdown overlap) */}
             <div className="absolute z-20 right-3 bottom-[calc(env(safe-area-inset-bottom,0)+168px)] md:bottom-6 flex flex-col gap-2">
                 <button
                     className="rounded-full shadow px-4 py-3 bg-white/95 backdrop-blur text-sm font-medium"
-                    onClick={locateOnceRobust}
+                    onClick={""}
                     title="Center on my location"
                 >
-                    Locate Me
+                    Show Accessible routes
                 </button>
                 {!tracking ? (
                     <button
@@ -484,33 +327,11 @@ export default function NavigationMap() {
                 onMove={(evt) => setViewState(evt.viewState)}
                 className="w-full h-full"
                 mapStyle="https://api.maptiler.com/maps/base-v4/style.json?key=ezFqZj4n29WctcwDznlR"
-                onLoad={() => {
-                    console.log("[map] onLoad: ready");
-                    setMapReady(true);
-                }}
+                onLoad={() => { setMapReady(true); }}
             >
-                {/* {showADARoutes && (
-                    <Source id="ada-routes" type="geojson" data={ADA_ROUTES_FC}>
-                        <Layer {...adaRouteLayer} />
-                    </Source>
-                )}
-
-                {showADAEntrances && (
-                    <Source id="ada-entrances" type="geojson" data={ADA_ENTRANCES_FC}>
-                        <Layer {...adaEntranceLayer} />
-                    </Source>
-                )} */}
-
-                {accuracyGeoJSON && (
-                    <Source id="loc-accuracy" type="geojson" data={accuracyGeoJSON}>
-                        <Layer {...accuracyFill} />
-                        <Layer {...accuracyLine} />
-                    </Source>
-                )}
-
-                <Source id="edges" type="geojson" data={edgesGeoJSON}>
-                    <Layer {...lineLayer} />
-                </Source>
+                {curNavMode == "pedestrian" ?
+                    <PedestrianMap />
+                    : null}
 
                 {/* {markers.map((m) => {
 

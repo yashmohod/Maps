@@ -31,8 +31,8 @@ export default function NavigationMap() {
     const [tracking, setTracking] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const [curNavMode, setCurNavMode] = useState("pedestrian")
-    const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
-    const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
+    // const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
+    // const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
     const mapRef = useRef(null);
     const watchIdRef = useRef(null);
     const [path, setPath] = useState(new Set())
@@ -139,7 +139,7 @@ export default function NavigationMap() {
         let resp = await getBuildingPos(id)
         let lat = resp.data.lat
         let lng = resp.data.lng
-        ensureCenter(lng, lat, 17);
+        ensureCenter(lng, lat, 19);
     }
 
     async function startTracking() {
@@ -151,9 +151,11 @@ export default function NavigationMap() {
         }
 
         // let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng)
-        let resp = await getRouteTo(selectedDest, 42.424500, -76.491837)
-        setMarkers(resp.data.nodes)
-        setEdgeIndex(resp.data.edges)
+        let resp = await getRouteTo(selectedDest, 42.424500, -76.491837, curNavMode)
+        console.log(resp)
+        setPath(new Set(resp.data.path))
+        // setMarkers(resp.data.nodes)
+        // setEdgeIndex(resp.data.edges)
 
         // if (!("geolocation" in navigator)) {
         //     const msg = "Geolocation not supported";

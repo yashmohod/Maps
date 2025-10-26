@@ -18,9 +18,9 @@ export default function NavModeMap({ path, navMode }) {
     const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
     const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
 
-    function isInPath() {
+    function isInPath(id) {
 
-        return true
+        return path.has(id);
     }
 
     const edgesGeoJSON = useMemo(() => {
@@ -40,7 +40,7 @@ export default function NavModeMap({ path, navMode }) {
                 })
                 .filter(Boolean),
         };
-    }, [markers, edgeIndex]);
+    }, [markers, edgeIndex, path]);
 
     const lineLayer = useMemo(
         () => ({
@@ -68,7 +68,7 @@ export default function NavModeMap({ path, navMode }) {
     useEffect(() => {
         console.log("pedestrian!")
         getNavModeFeatures()
-    }, [])
+    }, [navMode, path])
 
     return (
         <Source id="edges" type="geojson" data={edgesGeoJSON}>

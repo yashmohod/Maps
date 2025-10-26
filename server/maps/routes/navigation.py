@@ -36,10 +36,11 @@ def buildingPos():
 def routeTo():
 
     buildingID = request.args.get("buildingid") 
-
+    navMode = request.args.get("navMode")
     userLat = float(request.args.get("lat"))
     userLng = float(request.args.get("lng")) 
     curBuilding = Buildings.query.get(buildingID)
+    print(buildingID,navMode,userLat,userLng)
     lngs=[]
     lats=[]
     ids=[]
@@ -59,9 +60,10 @@ def routeTo():
         ids.append(node.id)
     
     startid = nearestPoint(userLng,userLat,lngs,lats,ids)
+    print(startid,destid)
 
-    path = bfs(startid,destid)
-
+    path = bfs(startid,destid,navMode,Edges,NavModeAssosication)
+    print(path)
     
     edges=[]
     nodes=[]
@@ -69,18 +71,20 @@ def routeTo():
     for i in range(len(path)-1):
         n1 = Nodes.query.get(path[i])
         n2 = Nodes.query.get(path[i+1])
-        nodes.append({"id":n1.key,"lng":n1.lng,"lat":n1.lat})
+        nodes.append({"id":n1.id,"lng":n1.lng,"lat":n1.lat})
         if i == len(path)-2:
-            nodes.append({"id":n2.key,"lng":n2.lng,"lat":n2.lat})
-        edgeKey = n1.key+"__"+n2.key
-        edgeKey_alt = n2.key+"__"+n1.key
+            nodes.append({"id":n2.id,"lng":n2.lng,"lat":n2.lat})
+        edgeKey = n1.id+"__"+n2.id
+        edgeKey_alt = n2.id+"__"+n1.id
 
-        edge = Edges.query.filter_by(key=edgeKey).first()
-        edge_alt = Edges.query.filter_by(key=edgeKey_alt).first()
+        edge = Edges.query.filter_by(id=edgeKey).first()
+        edge_alt = Edges.query.filter_by(id=edgeKey_alt).first()
         if edge: 
-            edges.append({"key":edge.key,"from":edge.eFrom,"to":edge.eTo})
+            # edges.append({"key":edge.id,"from":edge.eFrom,"to":edge.eTo})
+            edges.append(edge.id)
         else: 
-            edges.append({"key":edge_alt.key,"from":edge_alt.eFrom,"to":edge_alt.eTo})
-
-    return jsonify({"edges":edges,"nodes":nodes}), 200
+            # edges.append({"key":edge_alt.id,"from":edge_alt.eFrom,"to":edge_alt.eTo})
+            edges.append(edge_alt.id)
+    # return jsonify({"edges":edges,"nodes":nodes}), 200
+    return jsonify({"path":edges}), 200
 

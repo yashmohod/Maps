@@ -125,9 +125,9 @@ export const getAllMapFeaturesNavMode = async (navModeId) => {
 //// vehicular functions
 
 
-export const getRouteTo = async (buildingId, lat, lng) => {
+export const getRouteTo = async (buildingId, lat, lng, navMode) => {
     console.log("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng)
-    const resp = await API.get("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng)
+    const resp = await API.get("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng + "&navMode=" + navMode)
 
     return resp
 

@@ -2,9 +2,8 @@ import numpy as np
 from scipy.spatial import cKDTree
 import pandas as pd  
 from collections import deque 
-from maps.models.map import *
-from maps import db
 import math
+
 
 def latlon_to_cartesian(lat, lon):
     lat, lon = np.radians(lat), np.radians(lon)
@@ -24,7 +23,7 @@ def nearestPoint(fromLng,fromLat,destLngs,destLats,destKeys):
     # return 0
 
 # bfs to find shortest path
-def bfs(startid,endid):
+def bfs(startid,endid,navMode,Edges,NavModeAssosication):
     # maintain a queue of paths
     queue = []
     # visited set to prevent cycles
@@ -42,14 +41,25 @@ def bfs(startid,endid):
             return path
         # enumerate all adjacent nodes, construct a 
         # new path and push it into the queue
-        edges = Nodes.query.get(nodeid).adjacencyList
-
-        for nextN  in edges:
-            if nextN.id not in visited:
+        # edges = Nodes.query.get(nodeid).adjacencyList
+        edgesFrom = Edges.query.filter_by(eFrom = nodeid).all()
+        edgesTo = Edges.query.filter_by(eTo = nodeid).all()
+        
+        for nextN  in edgesFrom:
+            curNodeNavMode = NavModeAssosication.query.filter(NavModeAssosication.feature == nextN.eTo ).filter(NavModeAssosication.navMode == navMode).first()
+            if curNodeNavMode and( nextN.eTo not in visited):
                 new_path = list(path)
-                new_path.append(nextN.id)
+                new_path.append(nextN.eTo)
                 queue.append(new_path)
-                visited.add(nextN.id)
+                visited.add(nextN.eTo)
+        
+        for nextN  in edgesTo:
+            curNodeNavMode = NavModeAssosication.query.filter(NavModeAssosication.feature == nextN.eFrom ).filter(NavModeAssosication.navMode == navMode).first()
+            if curNodeNavMode and ( nextN.eFrom not in visited):
+                new_path = list(path)
+                new_path.append(nextN.eFrom)
+                queue.append(new_path)
+                visited.add(nextN.eFrom)
 
 
 def getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2):
@@ -101,24 +111,24 @@ def deg2rad(deg):
 #     return res
 
         
-# def buildingPosCaluator(points):
+def buildingPosCaluator(points):
 
 
-#     x = y = z = 0.0
+    x = y = z = 0.0
     
-#     for lat, lon in points:
-#         lat_rad = math.radians(lat)
-#         lon_rad = math.radians(lon)
+    for lat, lon in points:
+        lat_rad = math.radians(lat)
+        lon_rad = math.radians(lon)
 
-#         x += math.cos(lat_rad) * math.cos(lon_rad)
-#         y += math.cos(lat_rad) * math.sin(lon_rad)
-#         z += math.sin(lat_rad)
+        x += math.cos(lat_rad) * math.cos(lon_rad)
+        y += math.cos(lat_rad) * math.sin(lon_rad)
+        z += math.sin(lat_rad)
 
-#     x /= len(points)
-#     y /= len(points)
-#     z /= len(points)
+    x /= len(points)
+    y /= len(points)
+    z /= len(points)
 
-#     hyp = math.sqrt(x * x + y * y)
-#     lat = math.degrees(math.atan2(z, hyp))
-#     lon = math.degrees(math.atan2(y, x))
-#     return (lat, lon)
+    hyp = math.sqrt(x * x + y * y)
+    lat = math.degrees(math.atan2(z, hyp))
+    lon = math.degrees(math.atan2(y, x))
+    return (lat, lon)

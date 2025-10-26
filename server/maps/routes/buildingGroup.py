@@ -85,7 +85,7 @@ def BuildingGetAllNodes():
     nodes = []
     for node in curBuilding.nodes:
         nodes.append({
-                "id":node.key,
+                "id":node.id,
                 "lng":node.lng,
                 'lat':node.lat
             })

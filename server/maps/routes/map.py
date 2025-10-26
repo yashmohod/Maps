@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from maps.models.map import *
 from maps import db
+from ..utils.navigation import getDistanceFromLatLonInKm
 
 map_bp = Blueprint("map_bp", __name__)
 
@@ -25,11 +26,14 @@ def MapFeatureAdd():
         db.session.add(node)
 
     elif data["type"] == "edge":
-
+        n1 = Nodes.query.get(data["from"])
+        n2 = Nodes.query.get(data["to"])
+        distance = getDistanceFromLatLonInKm(n1.lat,n1.lng,n2.lat,n2.lng)
         edge = Edges(
                 id = data["key"],
                 eFrom = data["from"],
                 eTo = data["to"],
+                distance = distance
                 )
         db.session.add(edge)
     
@@ -125,20 +129,33 @@ def MapFeatureDelete():
         for building in buildings:
             if node in building.nodes:
                 building.nodes.remove(node)
+        
+        navModeAssociations = NavModeAssosication.query.filter_by(feature = node.id).all()
+        for navModeAssociation in navModeAssociations:
+            db.session.delete(navModeAssociation)
 
         edgeFrom = Edges.query.filter_by(eFrom = node.id ).all()
         edgeTo = Edges.query.filter_by(eTo = node.id ).all()
         
-        for edge in edgeFrom:
+        for edge in edgeFrom:    
+            navModeAssociations = NavModeAssosication.query.filter_by(feature = edge.id).all()
+            for navModeAssociation in navModeAssociations:
+                db.session.delete(navModeAssociation)
             db.session.delete(edge)
 
         for edge in edgeTo:
+            navModeAssociations = NavModeAssosication.query.filter_by(feature = edge.id).all()
+            for navModeAssociation in navModeAssociations:
+                db.session.delete(navModeAssociation)
             db.session.delete(edge)
 
         db.session.delete(node)
 
     elif featureType == "Edge":
         edge = Edges.query.get(featureKey )
+        navModeAssociations = NavModeAssosication.query.filter_by(feature = edge.id).all()
+        for navModeAssociation in navModeAssociations:
+            db.session.delete(navModeAssociation)
         found = not(edge == None)
         db.session.delete(edge)
 

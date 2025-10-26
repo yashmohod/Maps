@@ -19,7 +19,7 @@ import {
   getAllBuildingNodes,
   attachNodeToBuilding,
   detachNodeFromBuilding,
-  getAllMapFeaturesNavMode,
+  getAllMapFeaturesNavModeIds,
   getAllNavModes
 } from "../../../api";
 import Dropdown from "react-bootstrap/Dropdown";
@@ -421,7 +421,7 @@ export default function MapEditor() {
   }
 
   async function getNavModeFeatures(navMode) {
-    let resp = await getAllMapFeaturesNavMode(navMode)
+    let resp = await getAllMapFeaturesNavModeIds(navMode)
     console.log(resp)
     setCurNavModeEdges(new Set(resp.data.edges));
     setCurNavModeNodes(new Set(resp.data.nodes));

@@ -53,54 +53,54 @@ class Buildings(db.Model):
 
 
 
-# db.create_all()
+db.create_all()
 
-# modes = ["Pedestrian","Accessible","Vehicular"]
-# for i in modes: 
-#     if not db.session.query(db.exists().where(NavMode.name == i)).scalar():
-#         mode = NavMode(name=i)
-#         db.session.add(mode)
+modes = ["Pedestrian","Accessible","Vehicular"]
+for i in modes: 
+    if not db.session.query(db.exists().where(NavMode.name == i)).scalar():
+        mode = NavMode(name=i)
+        db.session.add(mode)
 
-# print("got here")
+print("got here")
 
-# dir_path = os.path.dirname(os.path.realpath(__file__))
-# with open(dir_path+'/../../Dev/phaseOne.geojson', 'r') as file:
-#     geojson_data = geojson.load(file)
-#     curNavMode = NavMode.query.filter_by(name ="Pedestrian" ).first()
-#     for i in range(len(geojson_data.features)):
-#             if geojson_data.features[i].geometry.type == "Point":
-#                 # print(geojson_data.features[i])
-#                 if not db.session.query(db.exists().where(Nodes.id == geojson_data.features[i].id)).scalar():
-#                     node = Nodes(
-#                         id = geojson_data.features[i].id,
-#                         lng = geojson_data.features[i].geometry.coordinates[0],
-#                         lat = geojson_data.features[i].geometry.coordinates[1],
-#                     )
-#                     db.session.add(node) 
-#                     # curNavMode.nodes.add(node)
-#                     db.session.add(NavModeAssosication(navMode=1, feature=geojson_data.features[i].id, typeOf="Node"))
-#                     db.session.commit()
+dir_path = os.path.dirname(os.path.realpath(__file__))
+with open(dir_path+'/../../Dev/phaseOne.geojson', 'r') as file:
+    geojson_data = geojson.load(file)
+    curNavMode = NavMode.query.filter_by(name ="Pedestrian" ).first()
+    for i in range(len(geojson_data.features)):
+            if geojson_data.features[i].geometry.type == "Point":
+                # print(geojson_data.features[i])
+                if not db.session.query(db.exists().where(Nodes.id == geojson_data.features[i].id)).scalar():
+                    node = Nodes(
+                        id = geojson_data.features[i].id,
+                        lng = geojson_data.features[i].geometry.coordinates[0],
+                        lat = geojson_data.features[i].geometry.coordinates[1],
+                    )
+                    db.session.add(node) 
+                    # curNavMode.nodes.add(node)
+                    db.session.add(NavModeAssosication(navMode=1, feature=geojson_data.features[i].id, typeOf="Node"))
+                    db.session.commit()
 
-#             if geojson_data.features[i].geometry.type == "LineString":
-#                 # print(geojson_data.features[i])
-#                 cur = geojson_data.features[i].properties
-#                 if not db.session.query(db.exists().where(Edges.id == cur["key"])).scalar():
+            if geojson_data.features[i].geometry.type == "LineString":
+                # print(geojson_data.features[i])
+                cur = geojson_data.features[i].properties
+                if not db.session.query(db.exists().where(Edges.id == cur["key"])).scalar():
 
-#                     edge = Edges(
-#                         id = cur["key"],
-#                         eFrom = cur["from"],
-#                         eTo = cur["to"], 
-#                     )
+                    edge = Edges(
+                        id = cur["key"],
+                        eFrom = cur["from"],
+                        eTo = cur["to"], 
+                    )
     
-#                     db.session.add(edge)
+                    db.session.add(edge)
 
-#                     db.session.add(NavModeAssosication(navMode=1, feature=cur["key"], typeOf="Edge"))
-#                     # curNavMode.edges.add(edge)
+                    db.session.add(NavModeAssosication(navMode=1, feature=cur["key"], typeOf="Edge"))
+                    # curNavMode.edges.add(edge)
 
-# for i in Edges.query.all():
-#     n1 = Nodes.query.get(i.eFrom)
-#     n2 = Nodes.query.get(i.eTo)
-#     i.distance = getDistanceFromLatLonInKm(n1.lat,n1.lng,n2.lat,n2.lng) 
+for i in Edges.query.all():
+    n1 = Nodes.query.get(i.eFrom)
+    n2 = Nodes.query.get(i.eTo)
+    i.distance = getDistanceFromLatLonInKm(n1.lat,n1.lng,n2.lat,n2.lng) 
 
 
-# db.session.commit()
+db.session.commit()

@@ -87,4 +87,5 @@ def routeTo():
             edges.append(edge_alt.id)
     # return jsonify({"edges":edges,"nodes":nodes}), 200
     return jsonify({"path":edges}), 200
+    # return jsonify({"path":[]}), 200
 

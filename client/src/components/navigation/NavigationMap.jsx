@@ -30,7 +30,7 @@ export default function NavigationMap() {
     const [userPos, setUserPos] = useState(null); // {lng,lat,accuracy}
     const [tracking, setTracking] = useState(false);
     const [mapReady, setMapReady] = useState(false);
-    const [curNavMode, setCurNavMode] = useState("pedestrian")
+    const [curNavMode, setCurNavMode] = useState(1)
     // const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
     // const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
     const mapRef = useRef(null);
@@ -150,8 +150,8 @@ export default function NavigationMap() {
             return;
         }
 
-        // let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng)
-        let resp = await getRouteTo(selectedDest, 42.424500, -76.491837, curNavMode)
+        let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng,curNavMode)
+        // let resp = await getRouteTo(selectedDest, 42.424500, -76.491837, curNavMode)
         console.log(resp)
         setPath(new Set(resp.data.path))
         // setMarkers(resp.data.nodes)

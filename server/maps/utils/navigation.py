@@ -5,6 +5,7 @@ from collections import deque
 import math
 
 
+
 def latlon_to_cartesian(lat, lon):
     lat, lon = np.radians(lat), np.radians(lon)
     x = np.cos(lat) * np.cos(lon)
@@ -23,7 +24,7 @@ def nearestPoint(fromLng,fromLat,destLngs,destLats,destKeys):
     # return 0
 
 # bfs to find shortest path
-def bfs(startid,endid,navMode,Edges,NavModeAssosication):
+def bfs(startid,endid,navMode,Edges, NavModeAssosication):
     # maintain a queue of paths
     queue = []
     # visited set to prevent cycles
@@ -44,9 +45,8 @@ def bfs(startid,endid,navMode,Edges,NavModeAssosication):
         # edges = Nodes.query.get(nodeid).adjacencyList
         edgesFrom = Edges.query.filter_by(eFrom = nodeid).all()
         edgesTo = Edges.query.filter_by(eTo = nodeid).all()
-        
         for nextN  in edgesFrom:
-            curNodeNavMode = NavModeAssosication.query.filter(NavModeAssosication.feature == nextN.eTo ).filter(NavModeAssosication.navMode == navMode).first()
+            curNodeNavMode = NavModeAssosication.query.filter_by(feature = nextN.eTo).filter_by(navMode = navMode).first()
             if curNodeNavMode and( nextN.eTo not in visited):
                 new_path = list(path)
                 new_path.append(nextN.eTo)
@@ -54,7 +54,7 @@ def bfs(startid,endid,navMode,Edges,NavModeAssosication):
                 visited.add(nextN.eTo)
         
         for nextN  in edgesTo:
-            curNodeNavMode = NavModeAssosication.query.filter(NavModeAssosication.feature == nextN.eFrom ).filter(NavModeAssosication.navMode == navMode).first()
+            curNodeNavMode = NavModeAssosication.query.filter_by(feature = nextN.eFrom).filter_by(navMode = navMode).first()
             if curNodeNavMode and ( nextN.eFrom not in visited):
                 new_path = list(path)
                 new_path.append(nextN.eFrom)

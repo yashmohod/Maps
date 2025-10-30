@@ -88,7 +88,7 @@ export default function MapEditor() {
         })
         .filter(Boolean),
     };
-  }, [markers, edgeIndex, curNavModeEdges, mode, showOnlyNavMode, curNavMode]);
+  }, [markers, edgeIndex, curNavModeEdges, mode, showOnlyNavMode, curNavMode,mode]);
 
   // Line style
   const lineLayer = useMemo(
@@ -169,9 +169,11 @@ export default function MapEditor() {
   }
 
   function setNavModeEdge(key) {
+    
     const mode = curNavModeRef.current;
     const edge = getEdgeByKey(key);
     if (!edge) return;
+    console.log(key)
     const { from, to } = edge;
 
     setCurNavModeEdges((prev) => {
@@ -277,6 +279,8 @@ export default function MapEditor() {
   }
 
   function handleEdgeLayerClick(e) {
+    console.log(e);
+    console.log(modeRef.current)
     const f = e.features?.[0];
     const key = f?.properties?.key;
     if (!key) return;

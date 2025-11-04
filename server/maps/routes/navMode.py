@@ -90,6 +90,7 @@ def SetNavModeStatus():
         return jsonify({"message": "Bad Request"}), 400
     
     data = json.loads(request.data)
+    print(data)
         
     if data["featureType"] == None or data["value"] == None or data["navModeId"] == None or data["id"] == None: 
         return jsonify({"message": "Bad Request"}), 400

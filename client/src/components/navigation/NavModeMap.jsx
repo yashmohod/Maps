@@ -13,10 +13,10 @@ import {
     // getBuildingPos,
     getAllMapFeaturesNavMode
 } from "../../../api";
-export default function NavModeMap({ path, navMode }) {
+export default function NavModeMap({ path, navMode,markers, setMarkers,edgeIndex, setEdgeIndex }) {
 
-    const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
-    const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
+    // const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
+    // const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
 
     function isInPath(id) {
 

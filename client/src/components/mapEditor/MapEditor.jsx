@@ -32,6 +32,10 @@ export default function MapEditor() {
   // Graph
   const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
   const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
+    const curEdgeIndexRef = useRef(edgeIndex);
+  useEffect(() => {
+    curEdgeIndexRef.current = edgeIndex;
+  }, [edgeIndex]);
   const [selectedId, setSelectedId] = useState(null);
 
   // ADA — now Sets
@@ -67,7 +71,10 @@ export default function MapEditor() {
   const isNodeSelectedNavMode = (id) => curNavModeNodes.has(id);
   const isEdgeSelectedNavMode = (key) => curNavModeEdges.has(key);
   const getEdgeByKey = (key) => edgeIndex.find((e) => e.key === key) || null;
-  const hasAdjSelectedEdge = (nodeId) => edgeIndex.some((e) => (curNavModeEdges.has(e.key) && (e.from === nodeId || e.to === nodeId)));
+  const hasAdjSelectedEdge = (nodeId) => {
+    const edges=curEdgeIndexRef.current 
+    return edges.some((e) => (curNavModeEdges.has(e.key) && (e.from === nodeId || e.to === nodeId)))
+  };
 
   // Edges FC (ADA flag + optional filter)
   const edgesGeoJSON = useMemo(() => {
@@ -155,6 +162,7 @@ export default function MapEditor() {
   // ADA ops (now using Sets)
   function setNavModeNode(id, status, mode) {
     // block removal when any ADA edge touches this node
+    console.log(id,status,hasAdjSelectedEdge(id))
     if (!status && hasAdjSelectedEdge(id)) {
       toast.error("Can't deselect a node adjacent to a selected ADA edge.");
       return;
@@ -171,11 +179,14 @@ export default function MapEditor() {
   function setNavModeEdge(key) {
     
     const mode = curNavModeRef.current;
-    const edge = getEdgeByKey(key);
+    const eic = curEdgeIndexRef.current;
+    // const edge = getEdgeByKey(key);
+    const edge =  eic.find((e) => e.key === key) || null
+    // console.log(edge)
     if (!edge) return;
-    console.log(key)
-    const { from, to } = edge;
-
+    const from= edge.from;
+    const to= edge.to;
+    console.log(from,to)
     setCurNavModeEdges((prev) => {
       const next = new Set(prev);
       const wasSelected = next.has(key);
@@ -191,13 +202,33 @@ export default function MapEditor() {
         const stillAdjTo = [...next].some((k) => {
           const e = getEdgeByKey(k); return e && (e.from === to || e.to === to);
         });
-        if (!stillAdjFrom) setNavModeNode(from, false, mode);
-        if (!stillAdjTo) setNavModeNode(to, false, mode);
+
+        setCurNavModeNodes((prevNode) => {
+          const nextNode = new Set(prevNode);
+          // next.delete(to);
+          // next.delete(from);
+          if (!stillAdjFrom){
+            nextNode.delete(from)
+            setNavModeStatus(from, false, "Node", mode);
+          };
+          if (!stillAdjTo){
+            nextNode.delete(to)
+            setNavModeStatus(to, false, "Node", mode);
+          };
+          return nextNode;
+        });
       } else {
         next.add(key);
         setNavModeStatus(key, true, "Edge", mode);
-        if (!isNodeSelectedNavMode(from)) setNavModeNode(from, true, mode);
-        if (!isNodeSelectedNavMode(to)) setNavModeNode(to, true, mode);
+        setCurNavModeNodes((prevNode) => {
+          const nextNode = new Set(prevNode);
+          nextNode.add(to);
+          nextNode.add(from);
+          // optimistic server sync; keep UI responsive
+          setNavModeStatus(to, true, "Node", mode);
+          setNavModeStatus(from, true, "Node", mode);
+          return nextNode;
+        });
       }
       return next;
     });
@@ -279,8 +310,8 @@ export default function MapEditor() {
   }
 
   function handleEdgeLayerClick(e) {
-    console.log(e);
-    console.log(modeRef.current)
+    // console.log(e);
+    // console.log(modeRef.current)
     const f = e.features?.[0];
     const key = f?.properties?.key;
     if (!key) return;
@@ -426,7 +457,7 @@ export default function MapEditor() {
 
   async function getNavModeFeatures(navMode) {
     let resp = await getAllMapFeaturesNavModeIds(navMode)
-    console.log(resp)
+    // console.log(resp)
     setCurNavModeEdges(new Set(resp.data.edges));
     setCurNavModeNodes(new Set(resp.data.nodes));
   }

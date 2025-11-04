@@ -65,7 +65,7 @@ export const getAllBuildingNodes = async (id) => {
 
 export const attachNodeToBuilding = async (buildingId, nodeId) => {
     const resp = await API.post("/building/nodeadd", { buildingId, nodeId })
-    console.log(resp)
+    // console.log(resp)
     return resp.status == 200
 }
 
@@ -102,7 +102,7 @@ export const getAllNavModes = async () => {
 }
 
 export const setNavModeStatus = async (id, value, featureType, navModeId) => {
-    console.log(id, value, featureType, navModeId)
+    // console.log(id, value, featureType, navModeId)
     const resp = await API.patch("/navmode/setstatus", { id, value, featureType, navModeId });
     return resp.status == 200
 }
@@ -126,7 +126,7 @@ export const getAllMapFeaturesNavMode = async (navModeId) => {
 
 
 export const getRouteTo = async (buildingId, lat, lng, navMode) => {
-    console.log(navMode)
+    // console.log(navMode)
     const resp = await API.get("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng + "&navMode=" + navMode)
 
     return resp

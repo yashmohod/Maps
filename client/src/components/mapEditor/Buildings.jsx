@@ -46,7 +46,7 @@ export default function Buildings({buildings, getBuildings}){
     async function addBuildingHandler(){
         let resp = await addBuilding(currentName)
         console.log(resp)
-        if(resp.status == 201){
+        if(resp.status == 200){
             setCurrentName("")
             getBuildings()
         }else{

@@ -126,7 +126,7 @@ export default function MapEditor() {
   }
 
   async function deleteNode(id) {
-    const ok = await deleteFeature(id, "Point");
+    const ok = await deleteFeature(id, "node");
     if (!ok) return toast.error("Feature could not be deleted.");
     setMarkers((prev) => prev.filter((m) => m.id !== id));
     setEdgeIndex((list) => list.filter((e) => e.from !== id && e.to !== id));
@@ -150,7 +150,7 @@ export default function MapEditor() {
   }
 
   async function deleteEdgeByKey(key) {
-    const ok = await deleteFeature(key, "Edge");
+    const ok = await deleteFeature(key, "edge");
     if (!ok) return toast.error("Feature could not be deleted.");
     setEdgeIndex((list) => list.filter((e) => e.key !== key));
     setCurADAEdges((prev) => {
@@ -365,7 +365,7 @@ export default function MapEditor() {
   useEffect(() => {
     getAllFeature();
     getBuildings();
-    getNavModes();
+    // getNavModes();
     return () => {
       const map = mapRef.current?.getMap?.();
       if (!map) return;

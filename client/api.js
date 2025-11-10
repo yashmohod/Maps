@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-    baseURL: "http://127.0.0.1:8000",
+    baseURL: "http://127.0.0.1:8080",
     timeout: 30000,
 });
 
@@ -16,18 +16,18 @@ export const getAllMapFeature = async () => {
 export const addNode = async (id, lng, lat) => {
     let type = "node"
     const resp = await API.post("/map/", { id, lng, lat, type });
-    return resp.status == 201
+    return resp.status == 200
 }
 
 export const editNode = async (id, lng, lat) => {
     const resp = await API.put("/map/", { id, lng, lat });
-    return resp.status == 201
+    return resp.status == 200
 }
 
 export const addEdge = async (key, to, from) => {
     let type = "edge"
     const resp = await API.post("/map/", { key, to, from, type });
-    return resp.status == 201
+    return resp.status == 200
 }
 
 export const deleteFeature = async (featureKey, featureType) => {
@@ -75,7 +75,7 @@ export const detachNodeFromBuilding = async (buildingId, nodeId) => {
 }
 
 export const getBuildingPos = async (buildingId) => {
-    const resp = await API.get("/navigation/buildingpos?buildingid=" + buildingId)
+    const resp = await API.get("/building/buildingpos?buildingid=" + buildingId)
     return resp
 
 }

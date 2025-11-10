@@ -365,7 +365,7 @@ export default function MapEditor() {
   useEffect(() => {
     getAllFeature();
     getBuildings();
-    // getNavModes();
+    getNavModes();
     return () => {
       const map = mapRef.current?.getMap?.();
       if (!map) return;

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-    baseURL: "http://127.0.0.1:8080",
+    baseURL: "http://localhost:8080",
     timeout: 30000,
 });
 
@@ -75,7 +75,7 @@ export const detachNodeFromBuilding = async (buildingId, nodeId) => {
 }
 
 export const getBuildingPos = async (buildingId) => {
-    const resp = await API.get("/building/buildingpos?buildingid=" + buildingId)
+    const resp = await API.get("/building/buildingpos?id=" + buildingId)
     return resp
 
 }
@@ -126,8 +126,8 @@ export const getAllMapFeaturesNavMode = async (navModeId) => {
 
 
 export const getRouteTo = async (buildingId, lat, lng, navMode) => {
-    // console.log(navMode)
-    const resp = await API.get("/navigation/routeto?buildingid=" + buildingId + "&lat=" + lat + "&lng=" + lng + "&navMode=" + navMode)
+    console.log(buildingId, lat, lng, navMode)
+    const resp = await API.get("/map/navigateTo?id=" + buildingId + "&lat=" + lat + "&lng=" + lng + "&navMode=" + navMode)
 
     return resp
 

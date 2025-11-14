@@ -32,13 +32,13 @@ export default function MapEditor() {
   // Graph
   const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
   const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
-    const curEdgeIndexRef = useRef(edgeIndex);
+  const curEdgeIndexRef = useRef(edgeIndex);
   useEffect(() => {
     curEdgeIndexRef.current = edgeIndex;
   }, [edgeIndex]);
   const [selectedId, setSelectedId] = useState(null);
 
-  // ADA — now Sets
+  // NavMode — now Sets
   const [curNavModeNodes, setCurNavModeNodes] = useState(new Set());     // Set<string>
   const [curNavModeEdges, setCurNavModeEdges] = useState(new Set());     // Set<string>
   const [showOnlyNavMode, setShowOnlyNavMode] = useState(false);
@@ -72,7 +72,7 @@ export default function MapEditor() {
   const isEdgeSelectedNavMode = (key) => curNavModeEdges.has(key);
   const getEdgeByKey = (key) => edgeIndex.find((e) => e.key === key) || null;
   const hasAdjSelectedEdge = (nodeId) => {
-    const edges=curEdgeIndexRef.current 
+    const edges = curEdgeIndexRef.current
     return edges.some((e) => (curNavModeEdges.has(e.key) && (e.from === nodeId || e.to === nodeId)))
   };
 
@@ -95,7 +95,7 @@ export default function MapEditor() {
         })
         .filter(Boolean),
     };
-  }, [markers, edgeIndex, curNavModeEdges, mode, showOnlyNavMode, curNavMode,mode]);
+  }, [markers, edgeIndex, curNavModeEdges, mode, showOnlyNavMode, curNavMode, mode]);
 
   // Line style
   const lineLayer = useMemo(
@@ -153,7 +153,7 @@ export default function MapEditor() {
     const ok = await deleteFeature(key, "edge");
     if (!ok) return toast.error("Feature could not be deleted.");
     setEdgeIndex((list) => list.filter((e) => e.key !== key));
-    setCurADAEdges((prev) => {
+    setCurNavModeEdges((prev) => {
       if (!prev.has(key)) return prev;
       const next = new Set(prev); next.delete(key); return next;
     });
@@ -162,7 +162,7 @@ export default function MapEditor() {
   // ADA ops (now using Sets)
   function setNavModeNode(id, status, mode) {
     // block removal when any ADA edge touches this node
-    console.log(id,status,hasAdjSelectedEdge(id))
+    console.log(id, status, hasAdjSelectedEdge(id))
     if (!status && hasAdjSelectedEdge(id)) {
       toast.error("Can't deselect a node adjacent to a selected ADA edge.");
       return;
@@ -177,16 +177,16 @@ export default function MapEditor() {
   }
 
   function setNavModeEdge(key) {
-    
+
     const mode = curNavModeRef.current;
     const eic = curEdgeIndexRef.current;
     // const edge = getEdgeByKey(key);
-    const edge =  eic.find((e) => e.key === key) || null
+    const edge = eic.find((e) => e.key === key) || null
     // console.log(edge)
     if (!edge) return;
-    const from= edge.from;
-    const to= edge.to;
-    console.log(from,to)
+    const from = edge.from;
+    const to = edge.to;
+    console.log(from, to)
     setCurNavModeEdges((prev) => {
       const next = new Set(prev);
       const wasSelected = next.has(key);
@@ -207,11 +207,11 @@ export default function MapEditor() {
           const nextNode = new Set(prevNode);
           // next.delete(to);
           // next.delete(from);
-          if (!stillAdjFrom){
+          if (!stillAdjFrom) {
             nextNode.delete(from)
             setNavModeStatus(from, false, "Node", mode);
           };
-          if (!stillAdjTo){
+          if (!stillAdjTo) {
             nextNode.delete(to)
             setNavModeStatus(to, false, "Node", mode);
           };

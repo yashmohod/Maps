@@ -44,13 +44,22 @@ export default function NavModes({ navModes, getNavModes }) {
     }
 
     async function addNavModeHandler() {
-        let resp = await addNavMode(currentName)
-        console.log(resp)
-        if (resp.status == 201) {
+        let curName = currentName.replace(/\s+$/, '');
+        for(let i =0 ; i< navModes.length; i+=1) {
+            // console.log(navModes[i].name === currentName) 
+            if(navModes[i].name === curName){ 
+                toast.error("Can't have duplicate names!");
+                return;
+            }
+        }
+
+        let resp = await addNavMode(curName)
+        // console.log(resp)
+        if (resp.status == 200) {
             setCurrentName("")
             getNavModes()
         } else {
-            toast.error(resp.message)
+            toast.error(resp.data.message)
         }
     }
 
@@ -76,12 +85,13 @@ export default function NavModes({ navModes, getNavModes }) {
                     return (
                         <ListGroup.Item className="d-flex justify-content-between align-items-start" key={b.id}>
                             {b.name}
-                            <div className="flex flex-row">
-                                <Button variant="success" onClick={() => { handleShow(); setcurEditId(b.id); setcurEditName(b.name) }}>Edit</Button>
-                                <div className="ml-2">
-                                    <Button variant="danger" onClick={() => deleteNavModeHandler(b.id)}>X</Button>
+                                <div className="flex flex-row">
+                                    <Button variant="success" onClick={() => { handleShow(); setcurEditId(b.id); setcurEditName(b.name) }}>Edit</Button>
+                                    <div className="ml-2">
+                                        <Button variant="danger" onClick={() => deleteNavModeHandler(b.id)}>X</Button>
+                                    </div>
                                 </div>
-                            </div>
+                            
                         </ListGroup.Item>
                     )
                 })}

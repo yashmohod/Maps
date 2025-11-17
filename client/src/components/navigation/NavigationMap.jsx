@@ -35,6 +35,16 @@ export default function NavigationMap() {
         pitch: 0
     });
 
+    const topLeftBoundary = {
+        lng:-76.505098,
+        lat:42.427959,
+    }
+
+    const bottomRightBoundary = {
+        lng:-76.483915,
+        lat:42.410851,
+    }
+
     const [selectedDest, setSelectedDest] = useState("");
     const [buildings, setBuildings] = useState([]);
     const [userPos, setUserPos] = useState(null); // {lng,lat,accuracy}
@@ -180,42 +190,42 @@ export default function NavigationMap() {
         window.removeEventListener("deviceorientationabsolute", () => { }, true);
         window.removeEventListener("deviceorientation", () => { }, true);
     }
-    // when you set up watchPosition:
-    const id = navigator.geolocation.watchPosition(
-        (pos) => {
-            const { longitude, latitude, accuracy, heading } = pos.coords;
-            setUserPos({ lng: longitude, lat: latitude, accuracy });
+    // // when you set up watchPosition:
+    // const id = navigator.geolocation.watchPosition(
+    //     (pos) => {
+    //         const { longitude, latitude, accuracy, heading } = pos.coords;
+    //         setUserPos({ lng: longitude, lat: latitude, accuracy });
 
-            let bearing = null;
-            if (typeof heading === "number" && !Number.isNaN(heading)) {
-                bearing = heading; // already degrees clockwise from north
-            } else if (deviceHeadingRef.current != null) {
-                bearing = deviceHeadingRef.current;
-            } else {
-                // fallback: aim to next route point if you kept it around
-                bearing = bearingAlongPath({ lng: longitude, lat: latitude }, /* routeCoords */[]);
-            }
+    //         let bearing = null;
+    //         if (typeof heading === "number" && !Number.isNaN(heading)) {
+    //             bearing = heading; // already degrees clockwise from north
+    //         } else if (deviceHeadingRef.current != null) {
+    //             bearing = deviceHeadingRef.current;
+    //         } else {
+    //             // fallback: aim to next route point if you kept it around
+    //             bearing = bearingAlongPath({ lng: longitude, lat: latitude }, /* routeCoords */[]);
+    //         }
 
-            const map = mapRef.current?.getMap?.();
-            if (bearing != null) {
-                setNavCamera(map, longitude, latitude, bearing, { pitch: 60, duration: 300 });
-            } else {
-                // at least keep user centered
-                setNavCamera(map, longitude, latitude, map?.getBearing?.() ?? 0, { pitch: 60, duration: 300 });
-            }
-        },
-        (err) => { /* your existing error handling */ },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-    );
+    //         const map = mapRef.current?.getMap?.();
+    //         if (bearing != null) {
+    //             setNavCamera(map, longitude, latitude, bearing, { pitch: 60, duration: 300 });
+    //         } else {
+    //             // at least keep user centered
+    //             setNavCamera(map, longitude, latitude, map?.getBearing?.() ?? 0, { pitch: 60, duration: 300 });
+    //         }
+    //     },
+    //     (err) => { /* your existing error handling */ },
+    //     { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+    // );
     // watchIdRef.current = id;
 
 
-    async function locateOnceRobust() {
+    async function locateOnceRobust(button) {
         await diagEnv();
-        if (userPos) {
-            ensureCenter(userPos.lng, userPos.lat, 16);
-            return;
-        }
+        // if (userPos) {
+        //     ensureCenter(userPos.lng, userPos.lat, 16);
+        //     return;
+        // }
 
         if (!("geolocation" in navigator)) {
             const msg = "Geolocation not supported";
@@ -235,10 +245,18 @@ export default function NavigationMap() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { longitude, latitude, accuracy } = position.coords;
-                console.log(longitude, latitude, accuracy)
 
-                setUserPos({ lng: longitude, lat: latitude, accuracy });
-                ensureCenter(longitude, latitude, 16);
+                if( (latitude < topLeftBoundary.lat && 
+                    latitude > bottomRightBoundary.lat &&
+                    longitude < bottomRightBoundary.lng &&
+                    longitude > topLeftBoundary.lng ) | button
+                ){
+                    setUserPos({ lng: longitude, lat: latitude, accuracy });
+                    ensureCenter(longitude, latitude, 16);
+                }
+                
+                // setUserPos({ lng: -76.498198, lat: 42.420439, accuracy });
+                // ensureCenter(-76.498198, 42.420439, accuracy);
 
             },
             (err) => {
@@ -356,12 +374,10 @@ export default function NavigationMap() {
 
         let resp = await getRouteTo(selectedDest, userPos.lat, userPos.lng, curNavMode)
         // let resp = await getRouteTo(selectedDest, 42.424500, -76.491837, curNavMode)
-        console.log("Herererere")
         console.log(resp)
-        console.log("Herererere")
         setPath(new Set(resp.data.path))
 
-        // setNavigating(true)
+        setNavigating(true)
 
         fitToUserAndDest()
 
@@ -413,7 +429,7 @@ export default function NavigationMap() {
         const [lng1, lat1] = [userPos.lng, userPos.lat];
         const [lng2, lat2] = coords[1]; // first forward point on the route
         const forward = typeof userPos.heading === "number" ? userPos.heading : bearingTo(lng1, lat1, lng2, lat2);
-        aimCamera(mapRef.current?.getMap?.(), lng1, lat1, forward, { pitch: 60, duration: 600 });
+        aimCamera(mapRef.current?.getMap?.(), lng1, lat1, forward, { pitch: 60, duration: 600, zoom:18 });
 
         // 5) (Optional) follow user — use browser heading when available, otherwise aim to next route vertex
         if (watchIdRef.current != null) {
@@ -482,7 +498,7 @@ export default function NavigationMap() {
 
     useEffect(() => {
         getBuildings();
-        locateOnceRobust();
+        locateOnceRobust(false);
         getNavModes();
     }, [])
 
@@ -559,7 +575,7 @@ export default function NavigationMap() {
                 </button>
                 <button
                     className="rounded-full shadow px-4 py-3 bg-white/95 backdrop-blur text-sm font-medium"
-                    onClick={() => locateOnceRobust()}
+                    onClick={() => locateOnceRobust(true)}
                     title="Center on my location"
                 >
                     Locate Me
@@ -605,7 +621,9 @@ export default function NavigationMap() {
                 mapStyle="https://api.maptiler.com/maps/base-v4/style.json?key=ezFqZj4n29WctcwDznlR"
                 onLoad={() => { setMapReady(true); }}
             >
+
                 <NavModeMap path={path} navMode={curNavMode} markers={markers} setMarkers={setMarkers} edgeIndex={edgeIndex} setEdgeIndex={setEdgeIndex} />
+                
 
                 {/* {markers.map((m) => {
 

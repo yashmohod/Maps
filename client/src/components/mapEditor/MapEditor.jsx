@@ -42,7 +42,7 @@ export default function MapEditor() {
   const [curNavModeNodes, setCurNavModeNodes] = useState(new Set());     // Set<string>
   const [curNavModeEdges, setCurNavModeEdges] = useState(new Set());     // Set<string>
   const [showOnlyNavMode, setShowOnlyNavMode] = useState(false);
-  const [curNavMode, setCurNavMode] = useState("pedestrian")
+  const [curNavMode, setCurNavMode] = useState("Pedestrian")
 
   // Buildings
   const [buildings, setBuildings] = useState([]);

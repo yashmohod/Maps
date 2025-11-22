@@ -5,7 +5,7 @@
 import toast, { Toaster } from "react-hot-toast";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Map as ReactMap, Marker, Source, Layer } from "@vis.gl/react-maplibre";
-import Buildings from "./Buildings";
+
 import NavModes from "./NavModes";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -21,17 +21,18 @@ import {
   detachNodeFromBuilding,
   getAllMapFeaturesNavModeIds,
   getAllNavModes
-} from "../../../api";
+} from "../../../../api";
 import Dropdown from "react-bootstrap/Dropdown";
 import DropdownButton from "react-bootstrap/DropdownButton";
 import Modal from "react-bootstrap/Modal";
 
-export default function MapEditor() {
+export default function RouteEditor() {
   const [viewState, setViewState] = useState({ longitude: -76.494131, latitude: 42.422108, zoom: 15.5 });
 
   // Graph
   const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
   const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
+  const [biDirectionalEdges, setBiDirectionalEdges] = useState(true); 
   const curEdgeIndexRef = useRef(edgeIndex);
   useEffect(() => {
     curEdgeIndexRef.current = edgeIndex;
@@ -82,14 +83,14 @@ export default function MapEditor() {
     return {
       type: "FeatureCollection",
       features: edgeIndex
-        .map(({ key, from, to }) => {
+        .map(({ key, from, to, biDirectional }) => {
           const a = coord.get(from);
           const b = coord.get(to);
           if (!a || !b) return null;
           if (showOnlyNavMode && mode === "navMode" && !isEdgeSelectedNavMode(key)) return null;
           return {
             type: "Feature",
-            properties: { key, from, to, ada: isEdgeSelectedNavMode(key) && mode === "navMode" },
+            properties: { key, from, to, ada: isEdgeSelectedNavMode(key) && mode === "navMode", bidir:biDirectional},
             geometry: { type: "LineString", coordinates: [a, b] },
           };
         })
@@ -106,7 +107,14 @@ export default function MapEditor() {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-width": ["case", ["boolean", ["get", "ada"], false], 6, 5],
-        "line-color": ["case", ["boolean", ["get", "ada"], false], "#16a34a", "#111827"],
+
+        "line-color": [
+          "case", 
+          ["boolean", ["get", "ada"], true], "#16a34a", 
+          ["boolean", ["get", "bidir"], true], "#1E88E5", 
+          // ["boolean", ["get", "bidir"], false], "#F57C00",         
+        
+        "#F57C00"],
         "line-opacity": 0.95,
       },
     }),
@@ -120,8 +128,8 @@ export default function MapEditor() {
     const key = edgeKey(a, b);
     if (edgeIndex.some((e) => e.key === key)) return;
     const byId = new Map(markers.map((m) => [m.id, [m.lng, m.lat]]));
-    const ok = await addEdge(key, b, a, [byId.get(a), byId.get(b)]);
-    if (ok) setEdgeIndex((list) => [...list, { key, from: a, to: b }]);
+    const ok = await addEdge(key, b, a, biDirectionalEdges);
+    if (ok) setEdgeIndex((list) => [...list, { key, from: a, to: b, biDirectional:biDirectionalEdges }]);
     else toast.error("Edge could not be added.");
   }
 
@@ -319,11 +327,11 @@ export default function MapEditor() {
     if (modeRef.current === "delete") return void deleteEdgeByKey(key);
   }
 
-  function handleEdgeEnter() {
+  function handleEdgeEnter(e) {
     const map = mapRef.current?.getMap?.();
     if (map) map.getCanvas().style.cursor = "pointer";
   }
-  function handleEdgeLeave() {
+  function handleEdgeLeave(e) {
     const map = mapRef.current?.getMap?.();
     if (map) map.getCanvas().style.cursor = "";
   }
@@ -341,6 +349,7 @@ export default function MapEditor() {
 
   async function getAllFeature() {
     const resp = await getAllMapFeature();
+    console.log(resp)
     setMarkers(resp.data.nodes)
     setEdgeIndex(resp.data.edges)
   }
@@ -462,6 +471,32 @@ export default function MapEditor() {
     setCurNavModeNodes(new Set(resp.data.nodes));
   }
 
+
+  const oneWayArrows = useMemo(
+  () => ({
+    id: "oneway-arrows",
+    type: "symbol",
+    source: "edges",
+    // Only show arrows where bidirectional is false
+    filter: ["all", ["!", ["to-boolean", ["get", "bidir"]]]],
+    layout: {
+      "symbol-placement": "line",
+      "symbol-spacing": 60,                // density of arrows (px)
+      "text-field": "▶",                   // simple arrow glyph
+      "text-size": 14,
+      "text-rotation-alignment": "map",
+      "text-keep-upright": false,          // follow line direction, not viewport
+      "text-offset": [0, 0]
+    },
+    paint: {
+      "text-color": "#a35a00ff",
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 1
+    }
+  }),
+  []
+);
+
   return (
     <div className="w-full h-screen relative">
       <Toaster position="top-right" reverseOrder />
@@ -524,6 +559,16 @@ export default function MapEditor() {
           </button>
         </div>
       )}
+      {mode === "select" && (
+        <div className="absolute z-20 top-16 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-3">
+          <span className="text-sm font-medium">Bi Directional Mode</span>
+          <button  onClick={() => { setBiDirectionalEdges(!biDirectionalEdges) }} 
+            className={`px-2 py-1 rounded ${!biDirectionalEdges ? "bg-red-600 text-white" : "bg-gray-200"}`}
+            >
+           {biDirectionalEdges?"On":"Off"}
+          </button>
+        </div>
+      )}
       {/* Building selector (left, under toolbar) */}
       {mode === "buildingGroup" && (
         <div className="absolute z-20 top-16 left-3 bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-3">
@@ -543,9 +588,9 @@ export default function MapEditor() {
               </Dropdown.Item>
             ))}
           </DropdownButton>
-          <button className="px-2 py-1 rounded bg-gray-200" onClick={() => setShowBuildingModal(true)}>
+          {/* <button className="px-2 py-1 rounded bg-gray-200" onClick={() => setShowBuildingModal(true)}>
             Manage Buildings
-          </button>
+          </button> */}
         </div>
       )}
 
@@ -655,6 +700,7 @@ export default function MapEditor() {
       >
         <Source id="edges" type="geojson" data={edgesGeoJSON}>
           <Layer {...lineLayer} />
+          <Layer {...oneWayArrows} />
         </Source>
 
         {markers.map((m) => {
@@ -688,11 +734,11 @@ export default function MapEditor() {
         })}
       </ReactMap>
       {/* Building manager*/}
-      <Modal show={showBuildingModal} onHide={() => setShowBuildingModal(false)} backdrop="static" keyboard={false}>
+      {/* <Modal show={showBuildingModal} onHide={() => setShowBuildingModal(false)} backdrop="static" keyboard={false}>
         <Modal.Header closeButton><Modal.Title>Buildings</Modal.Title></Modal.Header>
         <Modal.Body><Buildings buildings={buildings} getBuildings={getBuildings} /></Modal.Body>
         <Modal.Footer />
-      </Modal>
+      </Modal> */}
       {/* Navigation Mode manager */}
       <Modal show={showNavModeModal} onHide={() => setShowNavModeModal(false)} backdrop="static" keyboard={false}>
         <Modal.Header closeButton><Modal.Title>Navigation Modes</Modal.Title></Modal.Header>

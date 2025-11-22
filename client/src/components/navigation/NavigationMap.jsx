@@ -255,8 +255,6 @@ export default function NavigationMap() {
                     ensureCenter(longitude, latitude, 16);
                 }
                 
-                // setUserPos({ lng: -76.498198, lat: 42.420439, accuracy });
-                // ensureCenter(-76.498198, 42.420439, accuracy);
 
             },
             (err) => {
@@ -429,7 +427,7 @@ export default function NavigationMap() {
         const [lng1, lat1] = [userPos.lng, userPos.lat];
         const [lng2, lat2] = coords[1]; // first forward point on the route
         const forward = typeof userPos.heading === "number" ? userPos.heading : bearingTo(lng1, lat1, lng2, lat2);
-        aimCamera(mapRef.current?.getMap?.(), lng1, lat1, forward, { pitch: 60, duration: 600, zoom:18 });
+        aimCamera(mapRef.current?.getMap?.(), lng1, lat1, forward, { pitch: 60, duration: 600, zoom:20 });
 
         // 5) (Optional) follow user — use browser heading when available, otherwise aim to next route vertex
         if (watchIdRef.current != null) {
@@ -450,7 +448,7 @@ export default function NavigationMap() {
                 } else {
                     brg = 0;
                 }
-                aimCamera(mapRef.current?.getMap?.(), longitude, latitude, brg, { pitch: 60, duration: 300 });
+                aimCamera(mapRef.current?.getMap?.(), longitude, latitude, brg, { pitch: 60, duration: 300,zoom:20 });
             },
             (err) => {
                 console.log("watchPosition error:", err);

@@ -17,6 +17,7 @@
     "bootstrap": "^5.3.8",
     "mapbox": "^1.0.0-beta10",
     "maplibre-gl": "^5.9.0",
+    "maplibre-gl-draw": "^1.6.9",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.1",

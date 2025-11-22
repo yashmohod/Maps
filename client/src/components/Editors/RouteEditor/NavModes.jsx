@@ -1,4 +1,4 @@
-import { addNavMode, editNavMode, deleteNavMode } from "../../../api";
+import { addNavMode, editNavMode, deleteNavMode } from "../../../../api";
 import Button from 'react-bootstrap/Button';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Form from 'react-bootstrap/Form';

@@ -12,10 +12,11 @@ import {
   getAllNavModes,
   getRouteTo,
   getBuildingPos,
+  getNearestBlueLightPath,
 } from "../../../api";
 import NavModeMap from "./NavModeMap";
 
-export default function NavigationMap() {
+export default function NavigationMapBlueLight() {
   const defViewState = {
     longitude: -76.494131,
     latitude: 42.422108,
@@ -55,7 +56,6 @@ export default function NavigationMap() {
   const mapRef = useRef(null);
   const watchIdRef = useRef(null);
   const [path, setPath] = useState(new Set());
-  const [navModes, setNavModes] = useState([]);
 
   // Accuracy ring
   const accuracyGeoJSON = useMemo(() => {
@@ -64,7 +64,7 @@ export default function NavigationMap() {
       userPos.lng,
       userPos.lat,
       Math.max(userPos.accuracy, 5),
-      64
+      64,
     );
   }, [userPos]);
 
@@ -75,7 +75,7 @@ export default function NavigationMap() {
       source: "loc-accuracy",
       paint: { "fill-color": "#3b82f6", "fill-opacity": 0.15 },
     }),
-    []
+    [],
   );
   const accuracyLine = useMemo(
     () => ({
@@ -84,7 +84,7 @@ export default function NavigationMap() {
       source: "loc-accuracy",
       paint: { "line-color": "#3b82f6", "line-width": 2, "line-opacity": 0.6 },
     }),
-    []
+    [],
   );
 
   // Centering helper
@@ -142,7 +142,7 @@ export default function NavigationMap() {
         [west, south], // southwest
         [east, north], // northeast
       ],
-      { padding, maxZoom: 18, duration: 800, essential: true }
+      { padding, maxZoom: 18, duration: 800, essential: true },
     );
   }
 
@@ -158,7 +158,7 @@ export default function NavigationMap() {
       "[geo] secure:",
       window.isSecureContext,
       "UA:",
-      navigator.userAgent
+      navigator.userAgent,
     );
     try {
       if (navigator.permissions?.query) {
@@ -190,8 +190,8 @@ export default function NavigationMap() {
           typeof e.webkitCompassHeading === "number"
             ? e.webkitCompassHeading // iOS Safari [0..360) clockwise from true north
             : typeof e.alpha === "number"
-            ? 360 - e.alpha
-            : null; // alpha is clockwise from device top → convert to north ref
+              ? 360 - e.alpha
+              : null; // alpha is clockwise from device top → convert to north ref
         if (heading != null && !Number.isNaN(heading)) {
           deviceHeadingRef.current = (heading + 360) % 360;
         }
@@ -210,34 +210,6 @@ export default function NavigationMap() {
     window.removeEventListener("deviceorientationabsolute", () => {}, true);
     window.removeEventListener("deviceorientation", () => {}, true);
   }
-  // // when you set up watchPosition:
-  // const id = navigator.geolocation.watchPosition(
-  //     (pos) => {
-  //         const { longitude, latitude, accuracy, heading } = pos.coords;
-  //         setUserPos({ lng: longitude, lat: latitude, accuracy });
-
-  //         let bearing = null;
-  //         if (typeof heading === "number" && !Number.isNaN(heading)) {
-  //             bearing = heading; // already degrees clockwise from north
-  //         } else if (deviceHeadingRef.current != null) {
-  //             bearing = deviceHeadingRef.current;
-  //         } else {
-  //             // fallback: aim to next route point if you kept it around
-  //             bearing = bearingAlongPath({ lng: longitude, lat: latitude }, /* routeCoords */[]);
-  //         }
-
-  //         const map = mapRef.current?.getMap?.();
-  //         if (bearing != null) {
-  //             setNavCamera(map, longitude, latitude, bearing, { pitch: 60, duration: 300 });
-  //         } else {
-  //             // at least keep user centered
-  //             setNavCamera(map, longitude, latitude, map?.getBearing?.() ?? 0, { pitch: 60, duration: 300 });
-  //         }
-  //     },
-  //     (err) => { /* your existing error handling */ },
-  //     { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-  // );
-  // watchIdRef.current = id;
 
   async function locateOnceRobust(button) {
     await diagEnv();
@@ -273,12 +245,13 @@ export default function NavigationMap() {
         ) {
           setUserPos({ lng: longitude, lat: latitude, accuracy });
           ensureCenter(longitude, latitude, 16);
+          getBlueLightPath(latitude, longitude);
         }
       },
       (err) => {
         console.log(err.message);
       },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
     );
   }
 
@@ -296,17 +269,12 @@ export default function NavigationMap() {
   // Build quick lookups from your existing state
   function makeLookups(markers, edgeIndex) {
     const nodesById = new Map(
-      markers.map((m) => [m.id, { lng: m.lng, lat: m.lat }])
+      markers.map((m) => [m.id, { lng: m.lng, lat: m.lat }]),
     );
     const edgesByKey = new Map(
-      edgeIndex.map((e) => [e.key, { from: e.from, to: e.to }])
+      edgeIndex.map((e) => [e.key, { from: e.from, to: e.to }]),
     );
     return { nodesById, edgesByKey };
-  }
-  // Edge key is "a__b" (sorted)
-  function splitEdgeKey(key) {
-    const [a, b] = key.split("__");
-    return a && b ? [a, b] : [null, null];
   }
 
   // Reconstruct a simple path order (no branches) from the list of edge keys
@@ -343,7 +311,7 @@ export default function NavigationMap() {
       ordered.push(cur);
       visited.add(cur);
       const next = [...(adj.get(cur) ?? [])].find(
-        (n) => n !== prev && !visited.has(n)
+        (n) => n !== prev && !visited.has(n),
       );
       prev = cur;
       cur = next ?? null;
@@ -382,7 +350,7 @@ export default function NavigationMap() {
     lng,
     lat,
     bearingDeg,
-    { zoom = 16, pitch = 60, duration = 400 } = {}
+    { zoom = 16, pitch = 60, duration = 400 } = {},
   ) {
     if (!map) return;
     map.easeTo({
@@ -411,7 +379,7 @@ export default function NavigationMap() {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-width": 6, "line-color": "#111827", "line-opacity": 0.9 },
     }),
-    []
+    [],
   );
 
   async function showRoute() {
@@ -424,7 +392,7 @@ export default function NavigationMap() {
       selectedDest,
       userPos.lat,
       userPos.lng,
-      curNavMode
+      curNavMode,
     );
     // let resp = await getRouteTo(selectedDest, 42.424500, -76.491837, curNavMode)
     console.log(resp);
@@ -435,38 +403,8 @@ export default function NavigationMap() {
     fitToUserAndDest();
   }
   async function startTracking() {
-    if (!selectedDest) {
-      toast.error("Please select a destination first.");
-      return;
-    }
-    if (!userPos) {
-      toast.error("Tap Locate Me first so I know where you are.");
-      return;
-    }
-
-    // 1) Get path keys from server (array or set of keys like "a__b")
-    let resp;
-    try {
-      resp = await getRouteTo(
-        selectedDest,
-        userPos.lat,
-        userPos.lng,
-        curNavMode
-      );
-    } catch (e) {
-      toast.error("Failed to get route");
-      return;
-    }
-    const pathKeys = Array.isArray(resp?.data?.path)
-      ? resp.data.path
-      : resp?.data?.path instanceof Set
-      ? [...resp.data.path]
-      : [];
-
-    if (pathKeys.length === 0) {
-      toast.error("No route found.");
-      return;
-    }
+    
+    const pathKeys = path;
 
     // 2) Build ordered polyline coordinates from existing state
     const { nodesById, edgesByKey } = makeLookups(markers, edgeIndex);
@@ -533,12 +471,11 @@ export default function NavigationMap() {
         toast.error(err.message || "Tracking error");
         stopTracking();
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 },
     );
     watchIdRef.current = id;
     setTracking(true);
   }
-
   function stopTracking() {
     // ensureCenter(userPos.lng, userPos.lat, 16);
     navigator.geolocation.clearWatch(watchIdRef.current);
@@ -553,26 +490,15 @@ export default function NavigationMap() {
     // aimCamera(mapRef.current?.getMap?.(), userPos.lng, userPos.lat, forward, { pitch: 0, duration: 600 });
   }
 
-  async function getBuildings() {
-    const resp = await getAllBuildings();
-    if (resp?.status === 200) setBuildings(resp.data.buildings || []);
-    else toast.error("Buildings did not load!");
-  }
+  async function getBlueLightPath(lat, lng) {
+    let resp = await getNearestBlueLightPath(lat, lng);
+    console.log("blue light path", resp);
 
-  async function getNavModes() {
-    const resp = await getAllNavModes();
-    let curNavModes = resp.data.NavModes;
-    if (curNavModes.length > 0) {
-      setCurNavMode(curNavModes[0].id);
-    }
-
-    setNavModes(curNavModes);
+    setPath(new Set(resp.data.path));
   }
 
   useEffect(() => {
-    getBuildings();
     locateOnceRobust(false);
-    getNavModes();
   }, []);
 
   useEffect(() => {
@@ -589,86 +515,8 @@ export default function NavigationMap() {
 
   return (
     <div className="w-full h-screen relative">
-      <Toaster position="top-right" reverseOrder />
-      {/* Desktop toolbar */}
-      <div className="hidden md:flex absolute z-20 top-3 left-3 right-3 items-center justify-between">
-        <div className="bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
-          <label htmlFor="dest-d" className="text-sm font-medium">
-            Destination:
-          </label>
-          <select
-            id="dest-d"
-            className="text-sm rounded border px-2 py-1 bg-white w-64"
-            value={selectedDest}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSelectedDest(id);
-              showBuilding(id);
-              setNavigating(false);
-              setTracking(false);
-              // if (id) flyToSelected(id);
-            }}
-          >
-            <option value="">Select…</option>
-            {buildings.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow flex items-center gap-2">
-          <label htmlFor="dest-d" className="text-sm font-medium">
-            Navigation Mode
-          </label>
-          <select
-            id="dest-d"
-            className="text-sm rounded border px-2 py-1 bg-white w-64"
-            value={curNavMode}
-            defaultValue={"pedestrian"}
-            onChange={(e) => {
-              setCurNavMode(e.target.value);
-              // if (id) flyToSelected(id);
-            }}
-          >
-            {navModes.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="absolute z-20 right-3 bottom-[calc(env(safe-area-inset-bottom,0)+168px)] md:bottom-6 flex flex-col gap-2">
-        <button
-          className={`rounded-full shadow px-4 py-3 ${
-            useCompass ? "bg-green-600 text-white" : "bg-white/95"
-          } text-sm font-medium`}
-          onClick={() => (useCompass ? disableCompass() : enableCompass())}
-        >
-          {useCompass ? "Compass On" : "Use Compass"}
-        </button>
-        <button
-          className="rounded-full shadow px-4 py-3 bg-white/95 backdrop-blur text-sm font-medium"
-          onClick={() => locateOnceRobust(true)}
-          title="Center on my location"
-        >
-          Locate Me
-        </button>
-        {!navigating ? (
-          <>
-            <button
-              className="rounded-full shadow px-4 py-3 bg-blue-600 text-white text-sm font-medium"
-              onClick={() => showRoute()}
-              title="Follow my location"
-            >
-              Find Route
-            </button>
-          </>
-        ) : (
-          <>
-            {!tracking ? (
+<div className="absolute z-20 right-3 bottom-[calc(env(safe-area-inset-bottom,0)+168px)] md:bottom-6 flex flex-col gap-2">
+{!tracking ? (
               <button
                 className="rounded-full shadow px-4 py-3 bg-blue-600 text-white text-sm font-medium"
                 onClick={startTracking}
@@ -685,10 +533,8 @@ export default function NavigationMap() {
                 Stop Tracking
               </button>
             )}
-          </>
-        )}
-      </div>
-
+</div>
+      
       <ReactMap
         ref={mapRef}
         {...viewState}
@@ -708,27 +554,6 @@ export default function NavigationMap() {
           setEdgeIndex={setEdgeIndex}
         />
 
-        {/* {markers.map((m) => {
-
-
-                    return (
-                        <Marker
-                            key={m.id}
-                            longitude={m.lng}
-                            latitude={m.lat}
-                            anchor="center"
-                        >
-                            <button
-                                onContextMenu={(e) => e.preventDefault()}
-                            // aria-label={`marker-${m.id}`}
-                            // className={`rounded-full border-2 shadow ${colorClass} border-white`}
-                            // style={{ width: 16, height: 16, cursor: "pointer", boxSizing: "content-box", opacity: showNodes ? 1 : 0, pointerEvents: showNodes ? "auto" : "none" }}
-                            // title={`${m.id} (${m.lng.toFixed(5)}, ${m.lat.toFixed(5)})`}
-                            />
-                        </Marker>
-                    );
-                })} */}
-
         {userPos && (
           <Marker
             longitude={userPos.lng}
@@ -736,9 +561,7 @@ export default function NavigationMap() {
             anchor="center"
           >
             <div
-              title={`You are here (${userPos.lat.toFixed(
-                6
-              )}, ${userPos.lng.toFixed(6)})`}
+              title={`You are here (${userPos.lat.toFixed(6)}, ${userPos.lng.toFixed(6)})`}
               className="rounded-full border-2 border-white shadow"
               style={{
                 width: 14,
@@ -763,13 +586,13 @@ function makeCircleGeoJSON(lng, lat, radiusMeters, points = 64) {
     const brng = (i * 2 * Math.PI) / points;
     const lat2 = Math.asin(
       Math.sin(latRad) * Math.cos(d) +
-        Math.cos(latRad) * Math.sin(d) * Math.cos(brng)
+        Math.cos(latRad) * Math.sin(d) * Math.cos(brng),
     );
     const lon2 =
       lon +
       Math.atan2(
         Math.sin(brng) * Math.sin(d) * Math.cos(latRad),
-        Math.cos(d) - Math.sin(latRad) * Math.sin(lat2)
+        Math.cos(d) - Math.sin(latRad) * Math.sin(lat2),
       );
     coords.push([toDeg(lon2), toDeg(lat2)]);
   }

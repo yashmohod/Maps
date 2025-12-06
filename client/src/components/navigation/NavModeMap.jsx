@@ -5,7 +5,7 @@ import { Map as ReactMap, Source, Layer, Marker } from "@vis.gl/react-maplibre";
 import toast, { Toaster } from "react-hot-toast";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
-    // getAllMapFeature,
+    getAllMapFeature,
     // getAllBuildings,
     // getAllBuildingNodes,
     // getAllMapFeatureADA,
@@ -13,7 +13,7 @@ import {
     // getBuildingPos,
     getAllMapFeaturesNavMode
 } from "../../../api";
-export default function NavModeMap({ path, navMode,markers, setMarkers,edgeIndex, setEdgeIndex }) {
+export default function NavModeMap({ path, navMode,markers, setMarkers,edgeIndex, setEdgeIndex, allFeatures}) {
 
     // const [markers, setMarkers] = useState([]);                    // [{id,lng,lat}]
     // const [edgeIndex, setEdgeIndex] = useState([]);                // [{key,from,to}]
@@ -58,7 +58,13 @@ export default function NavModeMap({ path, navMode,markers, setMarkers,edgeIndex
     );
 
     async function getNavModeFeatures() {
-        const resp = await getAllMapFeaturesNavMode(navMode);
+        let resp  = await getAllMapFeature();
+
+        // if(allFeatures){
+            
+        // }else{
+        //     resp = await getAllMapFeaturesNavMode(navMode);
+        // }
 
         console.log(resp)
         setMarkers(resp.data.nodes)

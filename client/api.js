@@ -22,6 +22,11 @@ export const editNode = async (id, lng, lat) => {
   return resp.status == 200;
 };
 
+export const setBlueLight = async (nodeId, isBlueLight) => {
+  const resp = await API.post("/map/bluelight", { nodeId, isBlueLight });
+  return resp.status == 200;
+};
+
 export const addEdge = async (key, to, from, biDirectional) => {
   let type = "edge";
   console.log(key, to, from, biDirectional);
@@ -157,5 +162,12 @@ export const getRouteTo = async (buildingId, lat, lng, navMode) => {
       navMode
   );
 
+  return resp;
+};
+
+// getNearestBlueLightPath
+
+export const getNearestBlueLightPath = async (lat, lng) => {
+  const resp = await API.get("/map/bluelight?lat=" + lat + "&lng=" + lng);
   return resp;
 };
